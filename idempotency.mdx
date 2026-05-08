@@ -1,0 +1,89 @@
+---
+title: "Idempotency"
+description: "How Idempotency-Key headers, body hashing, and the 24h replay window work on Zest's write endpoints."
+---
+
+The Zest Partner API supports **idempotency** on every write endpoint via the `Idempotency-Key` request header. Idempotency lets you safely retry network failures without risking duplicate side effects.
+
+## Required vs optional
+
+| Endpoint | `Idempotency-Key` |
+| -------- | ----------------- |
+| `POST /v1/spv-requests` | **Required.** Returns `400 invalid_request` if missing. |
+| `POST /v1/investors` | Optional (additionally idempotent on `partnerInvestorId`). |
+| `POST /v1/spvs/{slug}/subscriptions` | Optional. |
+| `POST /v1/spvs/{slug}/subscription/{personId}/forms` | Not used (uploads are content-addressed). |
+| `POST /v1/spvs/{slug}/subscription/{personId}/fundings` | Not used (uploads are content-addressed). |
+
+## Semantics
+
+When you submit a request with `Idempotency-Key: <key>`:
+
+1. Zest hashes the canonicalised request body (sorted JSON keys, UTF-8).
+2. **First call** with that key + body hash:
+   - The request executes normally.
+   - The response is cached for **24 hours** keyed by `(client_id, key)`.
+3. **Replay** (same key + same body hash within 24h):
+   - Zest returns the cached response verbatim, with the original `200`/`201` status.
+   - No side effects on the resource.
+4. **Conflict** (same key + different body hash within 24h):
+   - Zest returns `409 conflict`, code `conflict`.
+   - The original request is left untouched.
+
+## Generating keys
+
+A v4 UUID is the simplest choice — collision probability is negligible.
+
+### Python
+
+```python
+import uuid
+import requests
+
+response = requests.post(
+    "https://api.zestequity.com/v1/spv-requests",
+    headers={
+        "Authorization": f"Bearer {token}",
+        "Idempotency-Key": str(uuid.uuid4()),
+    },
+    json={"templateId": "syndicate_secondary", "...": "..."},
+)
+```
+
+### Node.js
+
+```js
+import { randomUUID } from "node:crypto";
+
+const res = await fetch("https://api.zestequity.com/v1/spv-requests", {
+  method: "POST",
+  headers: {
+    "Authorization": `Bearer ${token}`,
+    "Idempotency-Key": randomUUID(),
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({ templateId: "syndicate_secondary" /* ... */ }),
+});
+```
+
+## Best practices
+
+- **One key per logical request.** Generate the key when the user clicks Submit, not on every retry — that way every retry of the *same* logical request shares a key.
+- **Persist the key with the request** in your database. After a network failure, retry with the same key. Don't lose the key between retries.
+- **Don't mutate the request body across retries.** A different body hash with the same key returns `409`. If the body genuinely needs to change, generate a new key.
+- **Treat the response as authoritative.** Zest replays the original status code; don't conditionalise on `2xx`-vs-`201`.
+
+## TTL & cache scope
+
+- TTL: **24 hours** from the first call.
+- Scope: `(client_id, idempotency_key)`. Two different partner applications can use the same key without collision.
+- Storage: Redis. Cache miss falls back to a real execution, so very rare key drops are bounded by re-running the request — exactly the same outcome as the first call would have produced.
+
+## Investor-row idempotency (different layer)
+
+`POST /v1/investors` carries a second layer of idempotency: the `partnerInvestorId` field. Replaying the same `partnerInvestorId` always returns the existing Zest person id, regardless of whether you also supplied an `Idempotency-Key`. This makes long-running bulk loads safe across crashes.
+
+## What to do on `409 conflict`
+
+1. Confirm you intended a *new* request — generate a fresh key and resubmit.
+2. If you intended to replay the original — fix the body to match what you sent before, or contact `partners@zestequity.com` with the `errorId` for support to inspect.

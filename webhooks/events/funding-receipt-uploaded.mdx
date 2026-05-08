@@ -1,0 +1,80 @@
+---
+title: "funding_receipt.uploaded"
+description: "Fired after POST /v1/spvs/{slug}/subscription/{personId}/fundings succeeds."
+---
+
+## When fired
+
+Emitted after the partner uploads a wire-transfer receipt via `POST /v1/spvs/{spv_slug}/subscription/{person_id}/fundings`. Strict order: a signed subscription form must already be on record (otherwise the upload fails with 409).
+
+## Envelope fields
+
+<ResponseField name="eventId" type="string" required>
+  Unique per delivery.
+</ResponseField>
+
+<ResponseField name="eventType" type="string" required>
+  Always `"funding_receipt.uploaded"`.
+</ResponseField>
+
+<ResponseField name="occurredAt" type="string (ISO 8601 UTC)" required>
+  Timestamp the receipt was uploaded.
+</ResponseField>
+
+<ResponseField name="data" type="object" required>
+  See payload schema below.
+</ResponseField>
+
+## `data` schema
+
+<ResponseField name="subscriptionSlug" type="string" required>
+  Subscription the funding belongs to.
+</ResponseField>
+
+<ResponseField name="spvSlug" type="string" required>
+  SPV slug.
+</ResponseField>
+
+<ResponseField name="personId" type="string" required>
+  Zest person id of the investor.
+</ResponseField>
+
+<ResponseField name="fundingReceiptUrl" type="string" required>
+  Time-limited signed URL of the stored receipt.
+</ResponseField>
+
+<ResponseField name="amount" type="string" required>
+  Funded amount as a decimal string, e.g. `"50000.00"`.
+</ResponseField>
+
+<ResponseField name="currency" type="string" required>
+  ISO 4217 currency code, e.g. `"USD"`.
+</ResponseField>
+
+<ResponseField name="wireReference" type="string" required>
+  Wire reference / message-id supplied by the partner.
+</ResponseField>
+
+<ResponseField name="uploadedAt" type="string (ISO 8601 UTC)" required>
+  Timestamp the receipt was uploaded.
+</ResponseField>
+
+## Example
+
+```json
+{
+  "eventId": "wde_4f26d8a91b23807e",
+  "eventType": "funding_receipt.uploaded",
+  "occurredAt": "2026-05-07T16:21:09.000Z",
+  "data": {
+    "subscriptionSlug": "sub_p9q8r7",
+    "spvSlug": "veh_klm456",
+    "personId": "psn_abc123",
+    "fundingReceiptUrl": "https://storage.zestequity.com/receipts/sub_p9q8r7.pdf?...",
+    "amount": "50000.00",
+    "currency": "USD",
+    "wireReference": "MNK-WIRE-20260507-9921",
+    "uploadedAt": "2026-05-07T16:21:09.000Z"
+  }
+}
+```

@@ -1,0 +1,115 @@
+---
+title: "Investors"
+description: "Bulk import semantics, partial success, partnerInvestorId correlation, and replay-safe retries."
+---
+
+Partner-managed investor onboarding is the default in the Zest Partner API: you run KYC on your side and POST the resulting investor records to Zest. Zest persists each row as a Person and returns a stable `zestPersonId` for use in subscription flows.
+
+## Bulk import endpoint
+
+```
+POST /v1/investors
+```
+
+Body:
+
+```json
+{
+  "investors": [
+    {
+      "partnerInvestorId": "monark-inv-7341",
+      "email": "alice@example.com",
+      "firstName": "Alice",
+      "lastName": "Liddell",
+      "dateOfBirth": "1985-04-12",
+      "countryOfResidence": "AE"
+    },
+    {
+      "partnerInvestorId": "monark-inv-7342",
+      "email": "bob@example.com",
+      "firstName": "Bob",
+      "lastName": "Marley",
+      "dateOfBirth": "1980-02-06",
+      "countryOfResidence": "JM"
+    }
+  ]
+}
+```
+
+## Partial-success semantics
+
+The endpoint **always returns `200 OK`** with a per-row result envelope. A single bad row never fails the batch.
+
+```json
+{
+  "results": [
+    {
+      "partnerInvestorId": "monark-inv-7341",
+      "status": "created",
+      "zestPersonId": "psn_abc123"
+    },
+    {
+      "partnerInvestorId": "monark-inv-7342",
+      "status": "failed",
+      "error": {
+        "code": "format",
+        "field": "dateOfBirth",
+        "message": "dateOfBirth must be YYYY-MM-DD",
+        "retryable": false
+      }
+    },
+    {
+      "partnerInvestorId": "monark-inv-7341",
+      "status": "already_exists",
+      "zestPersonId": "psn_abc123"
+    }
+  ]
+}
+```
+
+| Row status | Meaning | Action |
+| ---------- | ------- | ------ |
+| `created` | New person row inserted. | Persist the returned `zestPersonId`. Webhook `investor.created` will fire. |
+| `already_exists` | Replay of a previously-created `partnerInvestorId`. | Use the returned `zestPersonId`; no webhook fires. |
+| `failed` | Row-level validation error. | Inspect `error.code` + `error.retryable`. Fix and resubmit. |
+
+## Correlation: `partnerInvestorId`
+
+`partnerInvestorId` is the **stable join key** between your system and Zest. It must be:
+
+- Unique within your tenant.
+- Present on every row (no nulls).
+- Stable across retries.
+
+Zest persists the `(client_id, partnerInvestorId) -> zestPersonId` mapping. Replaying the same id always returns the existing `zestPersonId`, never a fresh one. This makes the endpoint safe to retry under any failure mode — duplicates are dedup'd server-side.
+
+## Idempotency layers
+
+There are two independent layers of replay protection:
+
+1. **Row-level dedup** via `partnerInvestorId` (always on).
+2. **Response caching** via `Idempotency-Key` header (24h TTL, optional).
+
+For long-running bulk imports, layer (1) is sufficient — even if your client crashes mid-batch and you retry from scratch, all `created` rows return `already_exists` on the second pass.
+
+For interactive single-row creates, add `Idempotency-Key` so the cached response is served byte-for-byte on retry.
+
+## Webhook fan-out
+
+Each `created` row fires one [`investor.created`](/webhooks/events/investor-created) webhook with the same payload as the row response, plus `kycManagedBy: "partner"` for downstream consumers.
+
+`already_exists` and `failed` rows do **not** fire webhooks — replays are silent on the wire.
+
+## Failure cases
+
+| Scenario | Behaviour |
+| -------- | --------- |
+| `partnerInvestorId` repeated within the same batch | First wins; subsequent rows fail with `error.code = "duplicate"` row-level. |
+| Email collision with a different `partnerInvestorId` | Row fails with `error.code = "conflict"`, retryable=false. Resolve in your system. |
+| Tenant not provisioned | `403 forbidden` at the request level (no row results). |
+| Token invalid | `401 invalid_token` at the request level. |
+
+## Date and country formats
+
+- `dateOfBirth`: ISO date `YYYY-MM-DD`. Format failures return `error.code = "format"`.
+- `countryOfResidence`: ISO 3166 alpha-2. Optional. Country code mismatches against Zest's risk-rating list propagate to KYC-stage flagging but do not fail the create.

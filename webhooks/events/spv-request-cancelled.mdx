@@ -1,0 +1,75 @@
+---
+title: "spv_request.cancelled"
+description: "Fired after a partner cancels a pending-review SPV request."
+---
+
+## When fired
+
+Emitted after a partner calls `DELETE /v1/spv-requests/{slug}` on a request that was still in `pending-review` and the cancellation succeeds. Terminal state.
+
+## Envelope fields
+
+<ResponseField name="eventId" type="string" required>
+  Unique per delivery.
+</ResponseField>
+
+<ResponseField name="eventType" type="string" required>
+  Always `"spv_request.cancelled"`.
+</ResponseField>
+
+<ResponseField name="occurredAt" type="string (ISO 8601 UTC)" required>
+  Timestamp of the cancellation.
+</ResponseField>
+
+<ResponseField name="data" type="object" required>
+  See payload schema below.
+</ResponseField>
+
+## `data` schema
+
+<ResponseField name="spvRequestSlug" type="string" required>
+  Stable Zest-side identifier of the SPV request.
+</ResponseField>
+
+<ResponseField name="templateId" type="string" required>
+  Contract template id used.
+</ResponseField>
+
+<ResponseField name="templateVersion" type="string" required>
+  Contract template version.
+</ResponseField>
+
+<ResponseField name="tenantSlug" type="string" required>
+  Tenant slug.
+</ResponseField>
+
+<ResponseField name="attributes" type="object" required>
+  The originally-submitted attributes map.
+</ResponseField>
+
+<ResponseField name="status" type="string" required>
+  Always `"cancelled"` for this event.
+</ResponseField>
+
+<ResponseField name="cancelledAt" type="string (ISO 8601 UTC)" required>
+  Timestamp the partner cancelled the request.
+</ResponseField>
+
+## Example
+
+```json
+{
+  "eventId": "wde_77c5e1f4ab2d8e30",
+  "eventType": "spv_request.cancelled",
+  "occurredAt": "2026-05-07T13:45:11.000Z",
+  "data": {
+    "spvRequestSlug": "svr_a1b2c3",
+    "templateId": "syndicate_secondary",
+    "templateVersion": "1.0.0",
+    "tenantSlug": "monark",
+    "attributes": { "underlyingCompanySlug": "co_acme" },
+    "status": "cancelled",
+    "cancelledAt": "2026-05-07T13:45:11.000Z"
+  }
+}
+```

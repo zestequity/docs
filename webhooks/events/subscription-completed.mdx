@@ -1,0 +1,75 @@
+---
+title: "subscription.completed"
+description: "Fired when a Zest admin transitions a partner-sourced bid to Completed."
+---
+
+## When fired
+
+Emitted when a Zest admin transitions the underlying Bid (with `source=partner-api`) to its terminal `Completed` status. This happens after the funding receipt has been validated against the wire transfer.
+
+## Envelope fields
+
+<ResponseField name="eventId" type="string" required>
+  Unique per delivery.
+</ResponseField>
+
+<ResponseField name="eventType" type="string" required>
+  Always `"subscription.completed"`.
+</ResponseField>
+
+<ResponseField name="occurredAt" type="string (ISO 8601 UTC)" required>
+  Timestamp the admin completed the bid.
+</ResponseField>
+
+<ResponseField name="data" type="object" required>
+  See payload schema below.
+</ResponseField>
+
+## `data` schema
+
+<ResponseField name="subscriptionSlug" type="string" required>
+  Stable subscription identifier.
+</ResponseField>
+
+<ResponseField name="spvSlug" type="string" required>
+  SPV slug.
+</ResponseField>
+
+<ResponseField name="personId" type="string" required>
+  Zest person id of the investor.
+</ResponseField>
+
+<ResponseField name="partnerInvestorId" type="string">
+  Echoed when the originating subscription carried one.
+</ResponseField>
+
+<ResponseField name="partnerSubscriptionId" type="string">
+  Echoed when the originating subscription carried one.
+</ResponseField>
+
+<ResponseField name="completedAt" type="string (ISO 8601 UTC)" required>
+  Timestamp the admin marked the bid as completed.
+</ResponseField>
+
+<ResponseField name="status" type="string" required>
+  Always `"completed"` for this event.
+</ResponseField>
+
+## Example
+
+```json
+{
+  "eventId": "wde_82a00b41c4f63aa1",
+  "eventType": "subscription.completed",
+  "occurredAt": "2026-05-09T10:00:00.000Z",
+  "data": {
+    "subscriptionSlug": "sub_p9q8r7",
+    "spvSlug": "veh_klm456",
+    "personId": "psn_abc123",
+    "partnerInvestorId": "monark-inv-7341",
+    "partnerSubscriptionId": "monark-sub-9921",
+    "completedAt": "2026-05-09T10:00:00.000Z",
+    "status": "completed"
+  }
+}
+```

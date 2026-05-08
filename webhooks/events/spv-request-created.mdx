@@ -1,0 +1,76 @@
+---
+title: "spv_request.created"
+description: "Fired after POST /v1/spv-requests returns 201."
+---
+
+## When fired
+
+Emitted immediately after `POST /v1/spv-requests` succeeds (HTTP `201 Created`). The SPV request is in `pending-review` status awaiting Zest admin action.
+
+## Envelope fields
+
+<ResponseField name="eventId" type="string" required>
+  Unique per delivery. Use for dedup.
+</ResponseField>
+
+<ResponseField name="eventType" type="string" required>
+  Always `"spv_request.created"`.
+</ResponseField>
+
+<ResponseField name="occurredAt" type="string (ISO 8601 UTC)" required>
+  Timestamp the SPV request was created.
+</ResponseField>
+
+<ResponseField name="data" type="object" required>
+  See payload schema below.
+</ResponseField>
+
+## `data` schema
+
+<ResponseField name="spvRequestSlug" type="string" required>
+  Stable Zest-side identifier of the SPV request, e.g. `svr_a1b2c3`.
+</ResponseField>
+
+<ResponseField name="templateId" type="string" required>
+  Contract template id used (e.g. `syndicate_secondary`).
+</ResponseField>
+
+<ResponseField name="templateVersion" type="string" required>
+  Contract template version (e.g. `1.0.0`).
+</ResponseField>
+
+<ResponseField name="tenantSlug" type="string" required>
+  Tenant slug the request belongs to.
+</ResponseField>
+
+<ResponseField name="attributes" type="object" required>
+  The validated attributes map you submitted.
+</ResponseField>
+
+<ResponseField name="status" type="string" required>
+  Always `"pending-review"` for this event.
+</ResponseField>
+
+## Example
+
+```json
+{
+  "eventId": "wde_2c5d6b3e9f1a4d7c",
+  "eventType": "spv_request.created",
+  "occurredAt": "2026-05-07T12:00:00.123Z",
+  "data": {
+    "spvRequestSlug": "svr_a1b2c3",
+    "templateId": "syndicate_secondary",
+    "templateVersion": "1.0.0",
+    "tenantSlug": "monark",
+    "attributes": {
+      "underlyingCompanySlug": "co_acme",
+      "currency": "USD",
+      "shareClasses": [
+        { "name": "Class A", "managementFeePercent": "2.0", "carryPercent": "20.0" }
+      ]
+    },
+    "status": "pending-review"
+  }
+}
+```

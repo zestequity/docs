@@ -1,0 +1,161 @@
+---
+title: "Authentication"
+description: "OAuth 2.0 JWT-Bearer assertion flow used by every partner API call."
+---
+
+The Zest Partner API uses the **OAuth 2.0 JWT-Bearer assertion grant** ([RFC 7523](https://www.rfc-editor.org/rfc/rfc7523)). Each call presents a short-lived bearer token; partners exchange a self-signed JWT to mint that token.
+
+## Flow
+
+<Steps>
+  <Step title="Build a JWT assertion">
+    Sign a JWT with the EdDSA private key registered with Zest. Claims are listed below.
+  </Step>
+  <Step title="POST to /v1/oauth2/tokens">
+    Body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=<JWT>`. Response: `{ accessToken, tokenType, expiresIn }`.
+  </Step>
+  <Step title="Send the access token">
+    Add `Authorization: Bearer <accessToken>` to every subsequent request.
+  </Step>
+  <Step title="Refresh before expiry">
+    Default lifetime is 1 hour. Cache and reuse the access token; mint a new JWT only when the previous access token is expiring.
+  </Step>
+</Steps>
+
+## Required JWT claims
+
+| Claim | Description |
+| ----- | ----------- |
+| `iss` | Your API base URL (acts as your issuer identifier). |
+| `sub` | Your `client_id`. |
+| `aud` | Zest API base URL of the environment you're calling — exactly `https://api.zestequity.com` or `https://sandbox.api.zestequity.com`. |
+| `client_id` | Your `client_id` (must match `sub`). |
+| `iat` | Issued-at, unix seconds. |
+| `exp` | Expiry, unix seconds. Keep short — 60 seconds is recommended. |
+
+The JWT MUST be signed with EdDSA. Other algorithms are rejected.
+
+## Token exchange request
+
+```http
+POST /v1/oauth2/tokens HTTP/1.1
+Host: api.zestequity.com
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=<signed-JWT>
+```
+
+Successful response:
+
+```json
+{
+  "accessToken": "eyJhbGciOi...",
+  "tokenType": "Bearer",
+  "expiresIn": 3600
+}
+```
+
+## Code samples
+
+### Python
+
+```python
+import time
+import jwt
+import requests
+
+CLIENT_ID = "client_xyz"
+PRIVATE_KEY = open("ed25519-private.pem").read()
+BASE_URL = "https://api.zestequity.com"
+
+def mint_access_token() -> str:
+    now = int(time.time())
+    assertion = jwt.encode(
+        {
+            "iss": "https://your-api.example.com",
+            "sub": CLIENT_ID,
+            "aud": BASE_URL,
+            "client_id": CLIENT_ID,
+            "iat": now,
+            "exp": now + 60,
+        },
+        PRIVATE_KEY,
+        algorithm="EdDSA",
+    )
+    resp = requests.post(
+        f"{BASE_URL}/v1/oauth2/tokens",
+        data={
+            "grant_type": "urn:ietf:params:oauth:grant-type:jwt-bearer",
+            "assertion": assertion,
+        },
+        timeout=10,
+    )
+    resp.raise_for_status()
+    return resp.json()["accessToken"]
+```
+
+### Node.js
+
+```js
+import { SignJWT, importPKCS8 } from "jose";
+
+const CLIENT_ID = "client_xyz";
+const BASE_URL = "https://api.zestequity.com";
+const PRIVATE_KEY_PEM = process.env.ZEST_PRIVATE_KEY;
+
+async function mintAccessToken() {
+  const privateKey = await importPKCS8(PRIVATE_KEY_PEM, "EdDSA");
+  const now = Math.floor(Date.now() / 1000);
+
+  const assertion = await new SignJWT({
+    client_id: CLIENT_ID,
+  })
+    .setProtectedHeader({ alg: "EdDSA" })
+    .setIssuer("https://your-api.example.com")
+    .setSubject(CLIENT_ID)
+    .setAudience(BASE_URL)
+    .setIssuedAt(now)
+    .setExpirationTime(now + 60)
+    .sign(privateKey);
+
+  const body = new URLSearchParams({
+    grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+    assertion,
+  });
+
+  const res = await fetch(`${BASE_URL}/v1/oauth2/tokens`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body,
+  });
+  if (!res.ok) throw new Error(`token exchange failed: ${res.status}`);
+  const json = await res.json();
+  return json.accessToken;
+}
+```
+
+## Common pitfalls
+
+<AccordionGroup>
+  <Accordion title="invalid_token / 401 — clock skew">
+    Zest tolerates only a few seconds of skew between your clock and ours. If your server clock drifts (common on bare-metal lab machines or some Docker hosts), JWT `iat` / `exp` checks fail. Fix by enabling NTP / chrony.
+  </Accordion>
+  <Accordion title="invalid_token / 401 — audience mismatch">
+    The `aud` claim MUST exactly equal the base URL of the environment you're calling. Sandbox tokens used against production (or vice versa) are rejected.
+  </Accordion>
+  <Accordion title="invalid_token / 401 — algorithm mismatch">
+    JWT MUST be signed with EdDSA. RSA / HMAC assertions are rejected as a defence-in-depth measure.
+  </Accordion>
+  <Accordion title="invalid_token / 401 — sub != client_id">
+    Both claims are required and must match each other. They identify the partner application.
+  </Accordion>
+</AccordionGroup>
+
+## Inspecting your token
+
+```bash
+curl https://api.zestequity.com/v1/oauth2/info \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+Returns metadata about the access token currently presented (client type, client id, application name).

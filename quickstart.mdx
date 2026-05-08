@@ -1,81 +1,179 @@
 ---
 title: "Quickstart"
-description: "Start building awesome documentation in minutes"
-icon: 'rocket'
+description: "Get from zero to first SPV request in under 10 minutes."
 ---
 
-## Get started in three steps
+<Note>
+The examples below use `http://localhost:8080` as the API base URL for local development against the open-source reference implementation. Production base URLs (sandbox + live) are communicated during partner onboarding.
+</Note>
 
-Get your documentation site running locally and make your first customization.
+This walkthrough creates an SPV request end to end using the sandbox environment. By the end you will have:
 
-### Step 1: Set up your local environment
+1. Exchanged a partner JWT for an access token.
+2. Listed available contract templates.
+3. Submitted an SPV creation request with `Idempotency-Key`.
+4. Verified the resulting `spv_request.created` webhook.
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+<Note>
+You need a sandbox `client_id`, the matching EdDSA private key, and a registered webhook URL + signing secret. Email `partners@zestequity.com` to provision.
+</Note>
 
-### Step 2: Deploy your changes
+## 1. Mint a JWT assertion
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+Build a JWT with the following claims:
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+| Claim | Value |
+| ----- | ----- |
+| `iss` | Your API base URL |
+| `sub` | Your `client_id` |
+| `aud` | `https://sandbox.api.zestequity.com` |
+| `client_id` | Your `client_id` |
+| `iat` | now (unix seconds) |
+| `exp` | now + 60 |
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+Sign it with EdDSA using the private key registered with Zest.
 
-### Step 3: Go live
+## 2. Exchange it for an access token
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+```bash
+curl -X POST https://sandbox.api.zestequity.com/v1/oauth2/tokens \
+  -H "Accept: application/json" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer" \
+  -d "assertion=<JWT>"
+```
+
+Response:
+
+```json
+{
+  "accessToken": "eyJ...",
+  "tokenType": "Bearer",
+  "expiresIn": 3600
+}
+```
+
+## 3. Submit an SPV request
+
+```bash
+curl -X POST https://sandbox.api.zestequity.com/v1/spv-requests \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer eyJ..." \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: $(uuidgen)" \
+  -d '{
+    "templateId": "syndicate_secondary",
+    "templateVersion": "1.0.0",
+    "attributes": {
+      "underlyingCompanySlug": "co_acme",
+      "currency": "USD",
+      "shareClasses": [
+        {
+          "name": "Class A",
+          "managementFeePercent": "2.0",
+          "carryPercent": "20.0"
+        }
+      ]
+    }
+  }'
+```
+
+Successful response (`201 Created`):
+
+```json
+{
+  "spvRequestSlug": "svr_a1b2c3",
+  "status": "pending-review",
+  "templateId": "syndicate_secondary",
+  "templateVersion": "1.0.0",
+  "tenantSlug": "monark",
+  "clientId": "client_xyz",
+  "attributes": { "...": "..." },
+  "createdAt": "2026-05-07T12:00:00Z",
+  "updatedAt": "2026-05-07T12:00:00Z"
+}
+```
+
+## 4. Same call in Python
+
+```python
+import os
+import uuid
+import time
+import jwt
+import requests
+
+CLIENT_ID = os.environ["ZEST_CLIENT_ID"]
+PRIVATE_KEY = open(os.environ["ZEST_PRIVATE_KEY_PATH"]).read()
+BASE_URL = "https://sandbox.api.zestequity.com"
+
+now = int(time.time())
+assertion = jwt.encode(
+    {
+        "iss": "https://your-api.example.com",
+        "sub": CLIENT_ID,
+        "aud": BASE_URL,
+        "client_id": CLIENT_ID,
+        "iat": now,
+        "exp": now + 60,
+    },
+    PRIVATE_KEY,
+    algorithm="EdDSA",
+)
+
+token = requests.post(
+    f"{BASE_URL}/v1/oauth2/tokens",
+    data={
+        "grant_type": "urn:ietf:params:oauth:grant-type:jwt-bearer",
+        "assertion": assertion,
+    },
+).json()["accessToken"]
+
+resp = requests.post(
+    f"{BASE_URL}/v1/spv-requests",
+    headers={
+        "Authorization": f"Bearer {token}",
+        "Idempotency-Key": str(uuid.uuid4()),
+    },
+    json={
+        "templateId": "syndicate_secondary",
+        "templateVersion": "1.0.0",
+        "attributes": {
+            "underlyingCompanySlug": "co_acme",
+            "currency": "USD",
+            "shareClasses": [
+                {"name": "Class A", "managementFeePercent": "2.0", "carryPercent": "20.0"}
+            ],
+        },
+    },
+)
+print(resp.status_code, resp.json())
+```
+
+## 5. Verify the webhook
+
+You should receive a `POST` to your webhook URL with body:
+
+```json
+{
+  "eventId": "wde_...",
+  "eventType": "spv_request.created",
+  "occurredAt": "2026-05-07T12:00:00Z",
+  "data": {
+    "spvRequestSlug": "svr_a1b2c3",
+    "templateId": "syndicate_secondary",
+    "templateVersion": "1.0.0",
+    "tenantSlug": "monark",
+    "attributes": { "...": "..." },
+    "status": "pending-review"
+  }
+}
+```
+
+Verify the `Zest-Signature` header before processing — see [Verification](/webhooks/verification).
 
 ## Next steps
 
-Now that you have your docs running, explore these key features:
-
-<CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
-</CardGroup>
-
-<Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
-</Note>
+- [Authentication](/authentication) — JWT-bearer details and common pitfalls.
+- [SPV Requests](/concepts/spv-requests) — full lifecycle.
+- [Webhooks Overview](/webhooks/overview) — event shape, ordering, dedup.

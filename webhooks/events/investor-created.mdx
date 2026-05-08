@@ -1,0 +1,70 @@
+---
+title: "investor.created"
+description: "Fired once per row created by POST /v1/investors."
+---
+
+## When fired
+
+Emitted once per row that is successfully created by `POST /v1/investors`. Rows that hit `failed` or `already_exists` do **not** fire this event.
+
+## Envelope fields
+
+<ResponseField name="eventId" type="string" required>
+  Unique per delivery.
+</ResponseField>
+
+<ResponseField name="eventType" type="string" required>
+  Always `"investor.created"`.
+</ResponseField>
+
+<ResponseField name="occurredAt" type="string (ISO 8601 UTC)" required>
+  Timestamp the investor record was created.
+</ResponseField>
+
+<ResponseField name="data" type="object" required>
+  See payload schema below.
+</ResponseField>
+
+## `data` schema
+
+<ResponseField name="partnerInvestorId" type="string" required>
+  The stable partner-side investor id you submitted.
+</ResponseField>
+
+<ResponseField name="zestPersonId" type="string" required>
+  Zest's canonical person id (e.g. `psn_abc123`).
+</ResponseField>
+
+<ResponseField name="email" type="string" required>
+  Investor email.
+</ResponseField>
+
+<ResponseField name="firstName" type="string" required>
+  Investor first name.
+</ResponseField>
+
+<ResponseField name="lastName" type="string" required>
+  Investor last name.
+</ResponseField>
+
+<ResponseField name="kycManagedBy" type="string" required>
+  Always `"partner"` for partner-managed onboarding.
+</ResponseField>
+
+## Example
+
+```json
+{
+  "eventId": "wde_a23bc89df1e405bd",
+  "eventType": "investor.created",
+  "occurredAt": "2026-05-07T14:01:32.000Z",
+  "data": {
+    "partnerInvestorId": "monark-inv-7341",
+    "zestPersonId": "psn_abc123",
+    "email": "alice@example.com",
+    "firstName": "Alice",
+    "lastName": "Liddell",
+    "kycManagedBy": "partner"
+  }
+}
+```

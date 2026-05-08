@@ -1,0 +1,55 @@
+---
+title: "Introduction"
+description: "Zest Partner API — programmatic access to SPV creation, investor onboarding, and subscription processing for Zest Equity's regulated private-market platform."
+---
+
+The Zest Partner API lets you embed Zest's DIFC-regulated SPV-as-a-Service workflow inside your own product. Use it to:
+
+- Submit SPV creation requests with structured contract attributes.
+- Bulk-onboard partner-managed investors.
+- Record subscriptions, upload signed forms, and post wire-transfer receipts.
+- Receive lifecycle events via signed webhooks.
+
+## Who this is for
+
+Partners that operate their own client-facing investor portal but want Zest to handle SPV vehicle setup, fund admin, and regulatory compliance.
+
+## Architecture at a glance
+
+<Steps>
+  <Step title="Authenticate">
+    Exchange a partner-signed JWT for a short-lived bearer access token via OAuth 2.0 JWT-Bearer assertion grant. See [Authentication](/authentication).
+  </Step>
+  <Step title="Submit an SPV request">
+    POST a contract-validated payload to `/v1/spv-requests`. Zest admins review and approve; on approval the SPV is materialised (Opportunity, Vehicle, SP, SPC). See [SPV Requests](/concepts/spv-requests).
+  </Step>
+  <Step title="Onboard investors">
+    Bulk-create investor records, with partial-success semantics — bad rows do not fail the batch. See [Investors](/concepts/investors).
+  </Step>
+  <Step title="Record subscriptions">
+    Create subscriptions for an SPV, then upload the signed subscription form, then the wire-transfer receipt. Strict ordering. See [Subscriptions](/concepts/subscriptions).
+  </Step>
+  <Step title="Receive webhooks">
+    Subscribe to nine lifecycle event types delivered with HMAC-SHA256 signed envelopes. See [Webhooks](/webhooks/overview).
+  </Step>
+</Steps>
+
+## Conventions
+
+- **Wire format**: All request and response bodies use JSON with camelCase field names.
+- **Authentication**: Bearer access token in the `Authorization` header, refreshed via JWT-Bearer assertion.
+- **Idempotency**: All write endpoints accept an `Idempotency-Key` header (required on `POST /v1/spv-requests`, optional elsewhere). See [Idempotency](/idempotency).
+- **Errors**: Uniform envelope with a top-level `code`, machine-readable `validationErrors[]`, and a UUID `errorId` for support correlation. See [Errors](/errors).
+- **Versioning**: All resource paths are prefixed with `/v1`. We never change the wire shape of a `v1` endpoint; additive changes only.
+
+## Base URLs
+
+| Environment | URL |
+| ----------- | --- |
+| Production | `https://api.zestequity.com` |
+| Sandbox | `https://sandbox.api.zestequity.com` |
+
+## Get help
+
+- Email: [partners@zestequity.com](mailto:partners@zestequity.com)
+- Status: [https://status.zestequity.com](https://status.zestequity.com)

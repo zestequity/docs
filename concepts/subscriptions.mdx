@@ -1,0 +1,78 @@
+---
+title: "Subscriptions"
+description: "What a Zest subscription is, how it maps onto an internal Bid, and the strict order that forms-then-fundings must follow."
+---
+
+A **subscription** is a single investor's commitment to deploy capital into a single SPV at a specified share class. Partners create subscriptions in bulk per SPV via `POST /v1/spvs/{slug}/subscriptions`.
+
+## Internal model
+
+Internally, every subscription **auto-creates a Bid row** with `source=partner-api`. There is no separate "Subscription" collection on the Zest side — the partner-visible projection is curated from the Bid.
+
+This matters because:
+
+- Zest's internal investment workflow already operates on Bids; partner-sourced subscriptions inherit that machinery for free.
+- Admin-side actions (e.g. mark-as-completed) are Bid actions that emit subscription-shaped webhooks (`subscription.completed`).
+
+You never need to know the underlying Bid id; the partner-visible `subscriptionSlug` is stable across the lifecycle.
+
+## Lifecycle
+
+```
+   POST /v1/spvs/{slug}/subscriptions
+              │
+              ▼
+   ┌──────────────────────┐
+   │  status: "pending"   │  ◄── subscription.created webhook fires
+   └──────────┬───────────┘
+              │
+              │  POST .../forms (signed PDF / image)
+              ▼
+   ┌──────────────────────────┐
+   │  signed form on record   │  ◄── signed_subscription_form.uploaded
+   └──────────┬───────────────┘
+              │
+              │  POST .../fundings (wire-receipt + amount/currency/wireRef)
+              ▼
+   ┌──────────────────────────────┐
+   │  funding receipt on record   │  ◄── funding_receipt.uploaded
+   └──────────┬───────────────────┘
+              │
+              │  Zest admin marks Bid Completed
+              ▼
+   ┌──────────────────────────┐
+   │  status: "completed"     │  ◄── subscription.completed
+   └──────────────────────────┘
+```
+
+## Strict order: forms before fundings
+
+`POST .../fundings` returns **`409 conflict`** when called before `POST .../forms` succeeds. This enforces compliance: Zest must hold the signed subscription contract before any wire-transfer money is associated with the subscription.
+
+If you orchestrate uploads in parallel, gate the funding upload on a successful signed-form response (or on the corresponding webhook).
+
+## Per-row payload
+
+Each row in the bulk request carries:
+
+| Field | Required | Notes |
+| ----- | -------- | ----- |
+| `partnerSubscriptionId` | optional | Echoed in the response and on every downstream webhook for correlation. |
+| `zestPersonId` | required | Returned from `POST /v1/investors`. |
+| `lumpSum` | required | `{ "currency": "USD", "value": "50000.00" }`. Currency is ISO 4217. |
+| `shareClassSlug` | required | Slug of the share class on the SPV. |
+
+The `lumpSum.value` is a decimal string — never a float — to avoid binary floating-point drift on monetary amounts.
+
+## Idempotency
+
+`Idempotency-Key` is **optional** on `POST /v1/spvs/{slug}/subscriptions`. Replays under the same key + same body return the cached response (24h TTL). See [Idempotency](/idempotency).
+
+## Upload constraints
+
+Both `forms` and `fundings` endpoints accept multipart uploads with:
+
+- Max size: **10 MB**.
+- Allowed content types: `application/pdf`, `image/jpeg`, `image/png`, `image/webp`.
+
+Oversize → `413 payload_too_large`. Wrong content-type → `415 unsupported_media_type`.

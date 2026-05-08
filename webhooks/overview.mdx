@@ -1,0 +1,77 @@
+---
+title: "Overview"
+description: "Universal webhook envelope, event types, ordering, and dedup expectations."
+---
+
+Zest delivers lifecycle events to a single partner-registered HTTPS endpoint. Every event uses the **same envelope** so a single handler can dispatch on `eventType`.
+
+## Universal envelope
+
+```json
+{
+  "eventId": "wde_2c5d6b3e9f1a4d7c",
+  "eventType": "spv_request.created",
+  "occurredAt": "2026-05-07T12:00:00.123Z",
+  "data": { /* per-event payload, see Events */ }
+}
+```
+
+| Field | Type | Description |
+| ----- | ---- | ----------- |
+| `eventId` | `string` | Globally unique delivery id. Use it for dedup. |
+| `eventType` | `string` | One of the nine event types listed below. |
+| `occurredAt` | `string (ISO 8601 UTC)` | Server time when the event was emitted. Use this for ordering, **not** receipt order. |
+| `data` | `object` | Event-specific payload. See per-event reference. |
+
+## Event types
+
+| Event type | Trigger |
+| ---------- | ------- |
+| [`spv_request.created`](/webhooks/events/spv-request-created) | A partner POSTed a new SPV request. |
+| [`spv_request.completed`](/webhooks/events/spv-request-completed) | Zest admin approved an SPV request and the SPV materialised. |
+| [`spv_request.rejected`](/webhooks/events/spv-request-rejected) | Zest admin rejected an SPV request. |
+| [`spv_request.cancelled`](/webhooks/events/spv-request-cancelled) | A partner cancelled a pending-review SPV request. |
+| [`investor.created`](/webhooks/events/investor-created) | A partner created a new investor record. |
+| [`subscription.created`](/webhooks/events/subscription-created) | A partner created a subscription on an SPV. |
+| [`signed_subscription_form.uploaded`](/webhooks/events/signed-form-uploaded) | A partner uploaded a signed subscription form. |
+| [`funding_receipt.uploaded`](/webhooks/events/funding-receipt-uploaded) | A partner uploaded a wire-transfer receipt. |
+| [`subscription.completed`](/webhooks/events/subscription-completed) | Zest admin transitioned a partner-sourced bid to Completed. |
+
+## Delivery semantics
+
+- **At-least-once.** Zest may deliver the same event more than once. Always dedup on `eventId`.
+- **No ordering guarantees.** Two events for the same subject can arrive out of order. Use the `occurredAt` timestamp as the source of truth for sequencing.
+- **Outbox pattern.** Events are persisted in Zest's database before delivery, so a transient delivery failure never loses an event.
+- **Retries.** See [Retries & dead-letter](/webhooks/retries).
+
+## Ordering disclaimer
+
+If you process state transitions that depend on order — for example, `subscription.completed` MUST follow `funding_receipt.uploaded` — derive ordering from `occurredAt`, not arrival order. A naive consumer that overwrites state on every receipt may regress when a delayed earlier event arrives second.
+
+## Dedup recipe
+
+```python
+seen = redis.set(f"webhook:dedup:{event['eventId']}", "1", ex=86400, nx=True)
+if not seen:
+    return 200  # already processed; ack and skip
+process(event)
+```
+
+A 24-hour dedup window safely covers the full retry tail (~14h45m) plus margin.
+
+## What gets delivered
+
+- HTTP `POST` to your registered URL.
+- `Content-Type: application/json`.
+- Body is the envelope above (UTF-8 JSON).
+- Headers:
+  - `Zest-Signature: t=<unix>,v1=<hex>` — see [Verification](/webhooks/verification).
+  - `Zest-Event-Id: <eventId>` — convenience copy.
+  - `Zest-Event-Type: <eventType>` — convenience copy.
+  - `User-Agent: ZestWebhooks/1.0`.
+
+## Acknowledging receipt
+
+Return any `2xx` response within 10 seconds. Zest treats `4xx` and `5xx` as failures and triggers the retry schedule.
+
+We recommend returning `200` quickly and processing the event asynchronously on your side — long-running processing inside the request hot path will exhaust the 10s budget and cause spurious retries.

@@ -1,0 +1,80 @@
+---
+title: "spv_request.rejected"
+description: "Fired after a Zest admin rejects an SPV request."
+---
+
+## When fired
+
+Emitted after a Zest admin rejects the SPV request. The request is in a terminal state and cannot be revived; submit a new request to retry.
+
+## Envelope fields
+
+<ResponseField name="eventId" type="string" required>
+  Unique per delivery.
+</ResponseField>
+
+<ResponseField name="eventType" type="string" required>
+  Always `"spv_request.rejected"`.
+</ResponseField>
+
+<ResponseField name="occurredAt" type="string (ISO 8601 UTC)" required>
+  Timestamp of the rejection.
+</ResponseField>
+
+<ResponseField name="data" type="object" required>
+  See payload schema below.
+</ResponseField>
+
+## `data` schema
+
+<ResponseField name="spvRequestSlug" type="string" required>
+  Stable Zest-side identifier of the SPV request.
+</ResponseField>
+
+<ResponseField name="templateId" type="string" required>
+  Contract template id used.
+</ResponseField>
+
+<ResponseField name="templateVersion" type="string" required>
+  Contract template version.
+</ResponseField>
+
+<ResponseField name="tenantSlug" type="string" required>
+  Tenant slug.
+</ResponseField>
+
+<ResponseField name="attributes" type="object" required>
+  The originally-submitted attributes map.
+</ResponseField>
+
+<ResponseField name="status" type="string" required>
+  Always `"rejected"` for this event.
+</ResponseField>
+
+<ResponseField name="rejectionReason" type="string" required>
+  Human-readable rejection reason supplied by the admin. Surface this to your operator UI.
+</ResponseField>
+
+<ResponseField name="rejectedAt" type="string (ISO 8601 UTC)" required>
+  Timestamp the admin rejected the request.
+</ResponseField>
+
+## Example
+
+```json
+{
+  "eventId": "wde_551b9a3df0c41a60",
+  "eventType": "spv_request.rejected",
+  "occurredAt": "2026-05-08T11:14:22.000Z",
+  "data": {
+    "spvRequestSlug": "svr_a1b2c3",
+    "templateId": "syndicate_secondary",
+    "templateVersion": "1.0.0",
+    "tenantSlug": "monark",
+    "attributes": { "underlyingCompanySlug": "co_acme" },
+    "status": "rejected",
+    "rejectionReason": "Underlying company not eligible for syndicate vehicles in this jurisdiction.",
+    "rejectedAt": "2026-05-08T11:14:22.000Z"
+  }
+}
+```

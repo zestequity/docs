@@ -1,0 +1,77 @@
+---
+title: "SPV Requests"
+description: "What an SPV request is, what state machine it follows, and how partner code reacts to each transition."
+---
+
+An **SPV request** is a partner-submitted intent to spin up a new Special Purpose Vehicle on the Zest platform. Zest admins review every request; on approval the SPV is materialised — i.e. an Opportunity, Vehicle, SP, and SPC are all created and committed in one transaction.
+
+## Why a request, not a direct create?
+
+DIFC regulation requires human compliance review before an SPV becomes investable. The request-then-approve pattern keeps Zest's regulatory perimeter clean while letting partners offer "create new SPV" actions inside their own UI.
+
+## Lifecycle
+
+```
+                     POST /v1/spv-requests
+                              │
+                              ▼
+                     ┌────────────────────┐
+                     │  pending-review    │  ◄── partner can DELETE here
+                     └────────┬───────────┘
+            admin              │              admin
+            approves           │              rejects
+                ▼              │                ▼
+        ┌────────────┐         │        ┌──────────────┐
+        │  approved  │         │        │   rejected   │
+        └─────┬──────┘         │        └──────────────┘
+              │                ▼
+              │        ┌────────────────┐
+              │        │   cancelled    │
+              │        └────────────────┘
+              ▼
+   ┌─────────────────────┐
+   │  SPV materialised   │
+   │  (Opp + Veh + SP +  │
+   │   SPC created)      │
+   └─────────────────────┘
+```
+
+| State | Description | Webhook |
+| ----- | ----------- | ------- |
+| `pending-review` | Awaiting Zest admin review. | [`spv_request.created`](/webhooks/events/spv-request-created) |
+| `approved` | Admin approved. SPV has been materialised. | [`spv_request.completed`](/webhooks/events/spv-request-completed) |
+| `rejected` | Admin rejected. Terminal. Submit a new request to retry. | [`spv_request.rejected`](/webhooks/events/spv-request-rejected) |
+| `cancelled` | Partner cancelled while still pending. Terminal. | [`spv_request.cancelled`](/webhooks/events/spv-request-cancelled) |
+
+## What partners see
+
+- `POST /v1/spv-requests` — create a request. Returns `201 Created` with the full request shape and `status: pending-review`.
+- `GET /v1/spv-requests/{slug}` — read a single request.
+- `GET /v1/spv-requests` — paginated listing, optionally filtered by `status`.
+- `DELETE /v1/spv-requests/{slug}` — cancel a `pending-review` request. Returns `409 conflict` if the request is in any terminal state.
+
+The four partner-visible states above are stable; Zest never emits intermediate or internal states on the wire.
+
+## Validation
+
+When you `POST /v1/spv-requests`, the `attributes` map is validated against the contract template referenced by `templateId` + `templateVersion`. A failure returns `400 validation_error` with one or more `validationErrors[]` rows; see [Errors](/errors) for the full code vocabulary.
+
+Every contract template is read-only and versioned; `GET /v1/contracts/templates/{version}` lists them.
+
+## Idempotency
+
+`Idempotency-Key` is **required** on `POST /v1/spv-requests`. Generate a UUIDv4 per logical click; replay the same key after a network failure to safely reuse the original response. See [Idempotency](/idempotency).
+
+## What happens on approval
+
+Admin approval atomically:
+
+1. Materialises an Opportunity and a Vehicle row.
+2. Creates the segregated portfolio (SP) and segregated portfolio company (SPC) rows.
+3. Persists slugs of all four onto the SPV request as `materialisedRefs`.
+4. Emits `spv_request.completed` with the materialised refs.
+
+Partners typically use the materialised refs to:
+
+- Surface "your SPV is live" to the originating user.
+- Pre-fill subscription flows with the new Vehicle's `vehicleSlug`.

@@ -1,0 +1,17 @@
+---
+title: "Changelog"
+description: "API and webhook change history."
+---
+
+## v1.0.0 — Initial release
+
+First public release of the Zest Partner API. Scope:
+
+- **Authentication**: OAuth 2.0 JWT-Bearer assertion grant via `POST /v1/oauth2/tokens`.
+- **SPV Requests**: `POST`, `GET`, `LIST`, `DELETE` for `/v1/spv-requests`. Admin approve/reject/cancel flow.
+- **Investors**: bulk-create `POST /v1/investors` with partial-success semantics.
+- **Subscriptions**: bulk-create `POST /v1/spvs/{slug}/subscriptions`.
+- **Uploads**: signed-form and funding-receipt multipart uploads with strict ordering.
+- **Webhooks**: nine event types, HMAC-SHA256 signed envelopes, 30s/5m/30m/2h/12h retry schedule + dead-letter.
+- **Errors**: uniform envelope with stable `code` vocabulary and per-field `validationErrors[]`.
+- **Idempotency**: required on `POST /v1/spv-requests`; optional on other writes; 24h TTL.

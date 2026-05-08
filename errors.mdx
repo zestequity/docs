@@ -1,0 +1,119 @@
+---
+title: "Errors"
+description: "Uniform error envelope, top-level error code vocabulary, and per-row validation codes."
+---
+
+Every non-2xx response from the Zest Partner API uses the same envelope. Always parse `code` first, fall back on `detail` for human display, and feed `errorId` into your support ticket if you ever need to escalate.
+
+## Envelope shape
+
+```json
+{
+  "code": "validation_error",
+  "detail": "Submitted attributes failed contract validation.",
+  "errorId": "1f1a4b3e-7c0e-4ed3-9abe-3cbef1f17c1f",
+  "validationErrors": [
+    {
+      "field": "attributes.shareClasses[0].carryPercent",
+      "code": "min_value",
+      "message": "carryPercent must be >= 0",
+      "value": "-1.0"
+    }
+  ]
+}
+```
+
+| Field | Type | Description |
+| ----- | ---- | ----------- |
+| `code` | `string` | Top-level error code from the [PartnerErrorCode vocabulary](#top-level-codes). |
+| `detail` | `string` | Human-readable explanation. Safe to show to operator UIs but **not** to end-users without sanitisation. |
+| `errorId` | `string (UUID)` | Stable per-error UUID. Cite this when contacting support. |
+| `validationErrors` | `array` | Optional. Present on `validation_error` to surface per-field errors. See [Validation error codes](#validation-error-codes). |
+
+## Top-level codes
+
+| Code | HTTP | Meaning |
+| ---- | ---- | ------- |
+| `validation_error` | `400` | Submitted payload failed contract validation. Inspect `validationErrors[]`. |
+| `invalid_request` | `400` | Request was syntactically invalid (missing required header, malformed JSON, etc.). |
+| `invalid_token` | `401` | Bearer token missing, malformed, or expired. Mint a fresh access token. |
+| `forbidden` | `403` | Token is valid but the partner application is not provisioned for this resource. |
+| `not_found` | `404` | Resource does not exist or is not visible to the caller. |
+| `conflict` | `409` | Idempotency-Key conflict, terminal-state mutation, or strict-order violation. |
+| `payload_too_large` | `413` | File exceeded the 10 MB upload cap. |
+| `unsupported_media_type` | `415` | Upload content-type not in the allow list (PDF, JPEG, PNG, WEBP). |
+| `internal_error` | `500` | Something broke on Zest's side. Retry with backoff; cite `errorId` if persistent. |
+| `service_unavailable` | `503` | Transient downstream outage. Retry with exponential backoff. |
+
+## Validation error codes
+
+Inside the `validationErrors[].code` field. Every code is stable and machine-actionable.
+
+| Code | Meaning |
+| ---- | ------- |
+| `required` | Required field missing. |
+| `unknown_attribute` | Attribute not declared by the contract template. |
+| `type` | Value is the wrong type (e.g. string where number expected). |
+| `enum` | Value is not in the allowed enum set. |
+| `pattern` | Value did not match the regex constraint. |
+| `max_length` | String exceeded the maximum length. |
+| `min_value` | Number below the minimum. |
+| `max_value` | Number above the maximum. |
+| `format` | Format constraint failed (e.g. ISO date, ISO 4217 currency). |
+| `currency_mismatch` | Multi-currency mismatch within a single object. |
+| `server_supplied` | Field is server-managed and cannot be supplied by partner. |
+| `institutional_not_supported` | Institutional investor type not supported on this template. |
+
+## Sample envelopes
+
+### 400 validation_error
+
+```json
+{
+  "code": "validation_error",
+  "detail": "Contract validation failed",
+  "errorId": "1f1a4b3e-7c0e-4ed3-9abe-3cbef1f17c1f",
+  "validationErrors": [
+    {
+      "field": "attributes.shareClasses[0].carryPercent",
+      "code": "min_value",
+      "message": "carryPercent must be >= 0",
+      "value": "-1.0"
+    }
+  ]
+}
+```
+
+### 401 invalid_token
+
+```json
+{
+  "code": "invalid_token",
+  "detail": "Bearer token is expired",
+  "errorId": "9f2d83bc-4715-4f99-9c4e-1e5ad23bca03"
+}
+```
+
+### 409 conflict (idempotency)
+
+```json
+{
+  "code": "conflict",
+  "detail": "Idempotency-Key already used with a different request body",
+  "errorId": "65bda4f2-0a0c-4e88-9cd0-2c4dec6fe7bb"
+}
+```
+
+### 413 payload_too_large
+
+```json
+{
+  "code": "payload_too_large",
+  "detail": "File exceeds the 10 MB limit",
+  "errorId": "c1b0e5da-2ff0-49a4-b76a-db09ad0c33a0"
+}
+```
+
+## Working with `errorId`
+
+`errorId` is generated server-side and persisted in our logs. Bake it into your operator dashboards next to every red-flagged event so support can trace incidents in seconds.

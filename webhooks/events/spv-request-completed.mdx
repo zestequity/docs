@@ -1,0 +1,85 @@
+---
+title: "spv_request.completed"
+description: "Fired after a Zest admin approves an SPV request and the SPV is materialised."
+---
+
+## When fired
+
+Emitted after a Zest admin approves the SPV request and the underlying SPV is fully materialised — i.e. an Opportunity, Vehicle, SP, and SPC have been created and committed.
+
+## Envelope fields
+
+<ResponseField name="eventId" type="string" required>
+  Unique per delivery.
+</ResponseField>
+
+<ResponseField name="eventType" type="string" required>
+  Always `"spv_request.completed"`.
+</ResponseField>
+
+<ResponseField name="occurredAt" type="string (ISO 8601 UTC)" required>
+  Timestamp of the approval.
+</ResponseField>
+
+<ResponseField name="data" type="object" required>
+  See payload schema below.
+</ResponseField>
+
+## `data` schema
+
+<ResponseField name="spvRequestSlug" type="string" required>
+  Stable Zest-side identifier of the SPV request.
+</ResponseField>
+
+<ResponseField name="templateId" type="string" required>
+  Contract template id used.
+</ResponseField>
+
+<ResponseField name="templateVersion" type="string" required>
+  Contract template version.
+</ResponseField>
+
+<ResponseField name="tenantSlug" type="string" required>
+  Tenant slug.
+</ResponseField>
+
+<ResponseField name="attributes" type="object" required>
+  The originally-submitted, validated attributes map.
+</ResponseField>
+
+<ResponseField name="status" type="string" required>
+  Always `"approved"` for this event.
+</ResponseField>
+
+<ResponseField name="materialisedRefs" type="object" required>
+  Slugs of the materialised entities. Keys: `opportunitySlug`, `vehicleSlug`, `spSlug`, `spcSlug`.
+</ResponseField>
+
+<ResponseField name="approvedAt" type="string (ISO 8601 UTC)" required>
+  Timestamp the admin approved the request.
+</ResponseField>
+
+## Example
+
+```json
+{
+  "eventId": "wde_84a72f12d77a09bb",
+  "eventType": "spv_request.completed",
+  "occurredAt": "2026-05-08T09:30:00.000Z",
+  "data": {
+    "spvRequestSlug": "svr_a1b2c3",
+    "templateId": "syndicate_secondary",
+    "templateVersion": "1.0.0",
+    "tenantSlug": "monark",
+    "attributes": { "underlyingCompanySlug": "co_acme" },
+    "status": "approved",
+    "materialisedRefs": {
+      "opportunitySlug": "opp_zyx789",
+      "vehicleSlug": "veh_klm456",
+      "spSlug": "sp_qrs321",
+      "spcSlug": "spc_def987"
+    },
+    "approvedAt": "2026-05-08T09:30:00.000Z"
+  }
+}
+```

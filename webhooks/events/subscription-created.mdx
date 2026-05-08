@@ -1,0 +1,77 @@
+---
+title: "subscription.created"
+description: "Fired once per row created by POST /v1/spvs/{slug}/subscriptions."
+---
+
+## When fired
+
+Emitted once per subscription successfully created by `POST /v1/spvs/{spv_slug}/subscriptions`. The subscription is in `pending` status and is ready to receive a signed form upload.
+
+Under the hood, each subscription auto-creates a Bid with `source=partner-api`.
+
+## Envelope fields
+
+<ResponseField name="eventId" type="string" required>
+  Unique per delivery.
+</ResponseField>
+
+<ResponseField name="eventType" type="string" required>
+  Always `"subscription.created"`.
+</ResponseField>
+
+<ResponseField name="occurredAt" type="string (ISO 8601 UTC)" required>
+  Timestamp the subscription was created.
+</ResponseField>
+
+<ResponseField name="data" type="object" required>
+  See payload schema below.
+</ResponseField>
+
+## `data` schema
+
+<ResponseField name="subscriptionSlug" type="string" required>
+  Stable subscription identifier.
+</ResponseField>
+
+<ResponseField name="spvSlug" type="string" required>
+  The SPV the subscription belongs to.
+</ResponseField>
+
+<ResponseField name="personId" type="string" required>
+  Zest person id of the investor.
+</ResponseField>
+
+<ResponseField name="partnerSubscriptionId" type="string">
+  Echoed from the request when supplied.
+</ResponseField>
+
+<ResponseField name="lumpSum" type="object" required>
+  Investment amount as `{ "currency": "USD", "value": "50000.00" }`.
+</ResponseField>
+
+<ResponseField name="shareClassSlug" type="string" required>
+  Slug of the share class on this subscription.
+</ResponseField>
+
+<ResponseField name="status" type="string" required>
+  Always `"pending"` for this event.
+</ResponseField>
+
+## Example
+
+```json
+{
+  "eventId": "wde_91ee5c2a7f6304bd",
+  "eventType": "subscription.created",
+  "occurredAt": "2026-05-07T14:32:18.000Z",
+  "data": {
+    "subscriptionSlug": "sub_p9q8r7",
+    "spvSlug": "veh_klm456",
+    "personId": "psn_abc123",
+    "partnerSubscriptionId": "monark-sub-9921",
+    "lumpSum": { "currency": "USD", "value": "50000.00" },
+    "shareClassSlug": "sc_classA",
+    "status": "pending"
+  }
+}
+```

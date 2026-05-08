@@ -1,0 +1,148 @@
+---
+title: "Verification"
+description: "HMAC-SHA256 signature verification for inbound Zest webhooks."
+---
+
+Every webhook delivery includes a `Zest-Signature` header that lets you authenticate the request before processing it. The scheme is **HMAC-SHA256 over the timestamped raw body**, modelled on Stripe's signing format.
+
+## Signature header format
+
+```
+Zest-Signature: t=1714829400,v1=4f1a8b...
+```
+
+| Token | Description |
+| ----- | ----------- |
+| `t` | Unix timestamp (seconds) at which Zest computed the signature. |
+| `v1` | Hex-encoded HMAC-SHA256 of `<t>.<raw_body>` using your signing secret. |
+
+Future signature versions will append additional `vN=...` tokens; partners should match on the version they support and ignore others.
+
+## Algorithm
+
+1. Read the `Zest-Signature` header. Parse out `t` and `v1`.
+2. Reject if `|now_unix - t| > 300` (5 minute replay window).
+3. Compute `expected = hmac_sha256(secret, f"{t}.{raw_body}")`.
+4. Compare `v1` to `expected` in constant time. Reject on mismatch.
+
+The signing secret is the **plaintext** value of the `whsec_<hex>` string Zest issued you. Zest stores it AES-256-GCM-encrypted at rest and never logs it.
+
+<Warning>
+Compare bytes, not strings. Use `hmac.compare_digest` in Python or `crypto.timingSafeEqual` in Node. A naive `==` comparison leaks length/timing information.
+</Warning>
+
+## Python
+
+```python
+import hashlib
+import hmac
+import time
+from fastapi import HTTPException, Request
+
+WEBHOOK_SECRET = "whsec_..."  # from your secrets vault
+REPLAY_WINDOW_SECONDS = 300
+
+def parse_header(header: str) -> tuple[int, str] | None:
+    parts: dict[str, str] = {}
+    for segment in header.split(","):
+        segment = segment.strip()
+        if "=" not in segment:
+            return None
+        key, value = segment.split("=", 1)
+        parts[key.strip()] = value.strip()
+    try:
+        return int(parts["t"]), parts["v1"]
+    except (KeyError, ValueError):
+        return None
+
+def verify(secret: str, body: bytes, header: str, now_unix: int) -> bool:
+    parsed = parse_header(header)
+    if parsed is None:
+        return False
+    timestamp, provided = parsed
+    if abs(now_unix - timestamp) > REPLAY_WINDOW_SECONDS:
+        return False
+    expected = hmac.new(
+        key=secret.encode("utf-8"),
+        msg=f"{timestamp}.".encode("ascii") + body,
+        digestmod=hashlib.sha256,
+    ).hexdigest()
+    return hmac.compare_digest(expected, provided)
+
+async def webhook_endpoint(request: Request):
+    raw_body = await request.body()
+    sig = request.headers.get("Zest-Signature", "")
+    if not verify(WEBHOOK_SECRET, raw_body, sig, int(time.time())):
+        raise HTTPException(status_code=401, detail="invalid signature")
+    # ... dedup on eventId, then process
+```
+
+## Node.js
+
+```js
+import crypto from "node:crypto";
+
+const WEBHOOK_SECRET = process.env.ZEST_WEBHOOK_SECRET;
+const REPLAY_WINDOW_SECONDS = 300;
+
+function parseHeader(header) {
+  const parts = Object.fromEntries(
+    header.split(",").map((s) => s.trim().split("=").map((p) => p.trim())),
+  );
+  if (!parts.t || !parts.v1) return null;
+  const t = Number.parseInt(parts.t, 10);
+  if (Number.isNaN(t)) return null;
+  return { t, v1: parts.v1 };
+}
+
+export function verifyWebhook(rawBody, header) {
+  const parsed = parseHeader(header);
+  if (!parsed) return false;
+  const now = Math.floor(Date.now() / 1000);
+  if (Math.abs(now - parsed.t) > REPLAY_WINDOW_SECONDS) return false;
+
+  const payload = Buffer.concat([
+    Buffer.from(`${parsed.t}.`, "ascii"),
+    Buffer.isBuffer(rawBody) ? rawBody : Buffer.from(rawBody),
+  ]);
+  const expected = crypto
+    .createHmac("sha256", WEBHOOK_SECRET)
+    .update(payload)
+    .digest("hex");
+
+  const a = Buffer.from(expected, "hex");
+  const b = Buffer.from(parsed.v1, "hex");
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+
+// Express handler. IMPORTANT: use express.raw({ type: "application/json" }) so
+// req.body is a raw Buffer; signature must be computed over the *exact* bytes.
+export function zestWebhookHandler(req, res) {
+  const ok = verifyWebhook(req.body, req.get("Zest-Signature") || "");
+  if (!ok) return res.status(401).send("invalid signature");
+  const event = JSON.parse(req.body.toString("utf8"));
+  // ... dedup on event.eventId, then process
+  res.status(200).send("ok");
+}
+```
+
+## Common pitfalls
+
+<AccordionGroup>
+  <Accordion title="Computing HMAC over the parsed body, not the raw bytes">
+    Most JSON middleware mutates whitespace and key order. The signature is computed over the **exact bytes** Zest sent — verify before any parsing. Use `express.raw()` in Node, `await request.body()` in FastAPI/Starlette.
+  </Accordion>
+  <Accordion title="Forgetting the period separator">
+    The signed payload is `<t>.<body>`, not `<t><body>`. Drop the period and every signature mismatches.
+  </Accordion>
+  <Accordion title="String comparison instead of constant-time">
+    `==` reveals timing-side-channel info. Always use `hmac.compare_digest` / `crypto.timingSafeEqual`.
+  </Accordion>
+  <Accordion title="No replay-window check">
+    Without a window check, a captured request can be replayed forever. Reject if `|now - t| > 300s`.
+  </Accordion>
+</AccordionGroup>
+
+## Rotating secrets
+
+Email `partners@zestequity.com` to rotate. Zest will issue a new `whsec_*` and accept signatures from both old and new for a short overlap window.

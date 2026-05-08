@@ -1,0 +1,60 @@
+---
+title: "Retries & dead-letter"
+description: "Schedule, dead-letter behaviour, and idempotency expectations for inbound webhooks."
+---
+
+Zest delivers events with **at-least-once** semantics. Any non-2xx response — or no response within 10 seconds — schedules the next retry attempt.
+
+## Retry schedule
+
+| Attempt | Delay from previous | Cumulative wait |
+| ------- | ------------------- | --------------- |
+| 1 (initial) | 0 | 0 |
+| 2 | 30 seconds | 30s |
+| 3 | 5 minutes | 5m 30s |
+| 4 | 30 minutes | 35m 30s |
+| 5 | 2 hours | 2h 35m 30s |
+| 6 | 12 hours | 14h 35m 30s |
+
+After attempt 6 fails, the delivery moves to the **dead-letter** state. Zest retains it indefinitely; you can replay individual deliveries via the admin tooling once the underlying issue is fixed.
+
+The schedule lives in code as `WEBHOOK_RETRY_DELAYS_SECONDS = (30, 300, 1800, 7200, 43200)`.
+
+## What counts as a failure
+
+- Any response with status `>= 300`.
+- Any TCP / TLS handshake failure.
+- Any response that takes longer than 10 seconds.
+
+## Idempotency expectations
+
+Because retries are guaranteed under failure conditions and possible under transient successes, your handler **must** be idempotent. The `eventId` field is purpose-built for dedup:
+
+```python
+# Pseudocode
+seen = redis.set(f"webhook:dedup:{event['eventId']}", "1", ex=86400, nx=True)
+if not seen:
+    return 200  # already processed; ack and skip
+process(event)
+```
+
+Use a 24-hour TTL — well past the longest cumulative wait (14h 35m).
+
+## Why a 24h dedup window?
+
+The full retry chain is just under 15 hours. A duplicate can therefore arrive almost a day after the first attempt. Setting the dedup TTL to 24h is a safe, simple default.
+
+## Dead-letter recovery
+
+Operations on Zest's side can:
+
+1. List dead-letter deliveries: `bin/cli webhook-deliveries list --status=dead`.
+2. Retry an individual delivery: `bin/cli webhook-deliveries retry <delivery_id>`.
+
+If you suspect a dropped event, contact `partners@zestequity.com` with the affected resource slug and a time window — operators can locate and replay the relevant deliveries.
+
+## Recommendations
+
+- Process the event **after** acknowledging with 200. Long synchronous processing inside the request hot path will hit the 10-second timeout and trigger spurious retries.
+- Log `eventId`, `eventType`, and `occurredAt` on every receipt for support correlation.
+- When testing on a new endpoint, expect to see a small replay tail as your code stabilises — the dedup recipe above protects you.
