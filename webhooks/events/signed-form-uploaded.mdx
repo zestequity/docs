@@ -39,6 +39,10 @@ Emitted after the partner successfully uploads a signed subscription form via `P
   Zest person id of the investor.
 </ResponseField>
 
+<ResponseField name="partnerInvestorId" type="string">
+  Partner-side investor id when the originating subscription carried one. Omitted otherwise.
+</ResponseField>
+
 <ResponseField name="subscriptionFormUrl" type="string" required>
   Time-limited signed URL of the stored form.
 </ResponseField>
@@ -58,6 +62,7 @@ Emitted after the partner successfully uploads a signed subscription form via `P
     "subscriptionSlug": "sub_p9q8r7",
     "spvSlug": "veh_klm456",
     "personId": "psn_abc123",
+    "partnerInvestorId": "acme-inv-7341",
     "subscriptionFormUrl": "https://storage.zestequity.com/forms/sub_p9q8r7-signed.pdf?...",
     "uploadedAt": "2026-05-07T15:05:42.000Z"
   }

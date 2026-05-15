@@ -613,7 +613,7 @@
         "operationId": "createSpvRequest",
         "parameters": [
           {
-            "required": false,
+            "required": true,
             "schema": {
               "type": "string",
               "title": "Idempotency-Key"
@@ -1103,7 +1103,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/FormUploadResponse"
+                }
               }
             }
           },
@@ -1238,7 +1240,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/FundingUploadResponse"
+                }
               }
             }
           },
@@ -1436,6 +1440,89 @@
         "type": "object",
         "title": "FeesAndCarryResponse"
       },
+      "FormUploadResponse": {
+        "properties": {
+          "subscriptionSlug": {
+            "type": "string",
+            "title": "Subscriptionslug"
+          },
+          "spvSlug": {
+            "type": "string",
+            "title": "Spvslug"
+          },
+          "personId": {
+            "type": "string",
+            "title": "Personid"
+          },
+          "subscriptionFormUrl": {
+            "type": "string",
+            "title": "Subscriptionformurl"
+          },
+          "uploadedAt": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Uploadedat"
+          }
+        },
+        "type": "object",
+        "required": [
+          "subscriptionSlug",
+          "spvSlug",
+          "personId",
+          "subscriptionFormUrl",
+          "uploadedAt"
+        ],
+        "title": "FormUploadResponse"
+      },
+      "FundingUploadResponse": {
+        "properties": {
+          "subscriptionSlug": {
+            "type": "string",
+            "title": "Subscriptionslug"
+          },
+          "spvSlug": {
+            "type": "string",
+            "title": "Spvslug"
+          },
+          "personId": {
+            "type": "string",
+            "title": "Personid"
+          },
+          "fundingReceiptUrl": {
+            "type": "string",
+            "title": "Fundingreceipturl"
+          },
+          "amount": {
+            "type": "string",
+            "title": "Amount"
+          },
+          "currency": {
+            "type": "string",
+            "title": "Currency"
+          },
+          "wireReference": {
+            "type": "string",
+            "title": "Wirereference"
+          },
+          "uploadedAt": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Uploadedat"
+          }
+        },
+        "type": "object",
+        "required": [
+          "subscriptionSlug",
+          "spvSlug",
+          "personId",
+          "fundingReceiptUrl",
+          "amount",
+          "currency",
+          "wireReference",
+          "uploadedAt"
+        ],
+        "title": "FundingUploadResponse"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -1513,8 +1600,8 @@
           "partnerInvestorId": {
             "type": "string",
             "title": "Partnerinvestorid",
-            "description": "Stable Monark-side investor identifier; used for response correlation + dedupe.",
-            "example": "monark-inv-7341"
+            "description": "Stable partner-side investor identifier; used for response correlation + dedupe.",
+            "example": "acme-inv-7341"
           },
           "email": {
             "type": "string",
@@ -1886,7 +1973,7 @@
             "type": "string",
             "title": "Partnersubscriptionid",
             "description": "Optional partner-side subscription id; echoed on the response for correlation.",
-            "example": "monark-sub-9921"
+            "example": "acme-sub-9921"
           },
           "zestPersonId": {
             "type": "string",

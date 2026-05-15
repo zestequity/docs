@@ -3,6 +3,31 @@ title: "Changelog"
 description: "API and webhook change history."
 ---
 
+## v1.0.1 — post-launch corrections
+
+Patches and refinements shipped on top of v1.0.0 before broader partner rollout. No breaking changes — all additions are backwards-compatible or strictly server-side.
+
+### Webhook delivery
+
+- **`subscription.completed` is now eventually-consistent.** A reconciler actor sweeps every 60 seconds and fires the webhook for any partner-sourced Bid where the synchronous emit was skipped. See [Subscriptions › subscription.completed delivery](/concepts/subscriptions#subscription-completed-delivery).
+- **`subscription.completed` admin trigger wired through.** Marking a partner-sourced Bid `Completed` in the Zest admin UI now reliably fans the webhook out via the helper path (with the reconciler as a backstop).
+- **Optional `partnerInvestorId`** added to the `signed_subscription_form.uploaded` and `funding_receipt.uploaded` payloads. Always present when the originating subscription carried a partner investor id; omitted otherwise.
+
+### Investors
+
+- **DIFC `User` minted alongside HoldCo `People`.** Each `created` row in `POST /v1/investors` now writes both records in the same request. Required so downstream subscription + upload endpoints can resolve the investor by `personId`. No partner-side payload change. See [Investors › What gets created server-side](/concepts/investors#what-gets-created-server-side).
+
+### Subscriptions
+
+- **Shadow `OpportunityBidder` rows** are now written at partner-Bid creation so partner-sourced subscriptions appear in the existing admin UI as `partner-managed` bidders. Read-only on the admin side; partner actions continue to flow through the v1 endpoints.
+- **`is_partner_managed` flag** on the admin bid-list response lets Zest support filter partner-sourced rows.
+
+### Onboarding / operations
+
+- **`POST /admin/services/register-partner`** now also provisions a lite Tenant row alongside the Service row. Partners are now first-class tenants from the moment they are onboarded; `is_partner_tenant: true` on the Tenant marks the relationship.
+- **`register-partner` CLI** accepts `--public-key-b64` for direct key registration and reports duplicate-key collisions with a friendly exit-1 message instead of a stack trace.
+- **Spaas contract sync + materialiser expanded** to cover the remaining `Opportunity` required fields (`is_fixed_price`, `company_id`) so approving an SPV request never fails the downstream insert.
+
 ## v1.0.0 — Initial release
 
 First public release of the Zest Partner API. Scope:

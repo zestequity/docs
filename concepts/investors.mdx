@@ -17,7 +17,7 @@ Body:
 {
   "investors": [
     {
-      "partnerInvestorId": "monark-inv-7341",
+      "partnerInvestorId": "acme-inv-7341",
       "email": "alice@example.com",
       "firstName": "Alice",
       "lastName": "Liddell",
@@ -25,7 +25,7 @@ Body:
       "countryOfResidence": "AE"
     },
     {
-      "partnerInvestorId": "monark-inv-7342",
+      "partnerInvestorId": "acme-inv-7342",
       "email": "bob@example.com",
       "firstName": "Bob",
       "lastName": "Marley",
@@ -36,6 +36,17 @@ Body:
 }
 ```
 
+## What gets created server-side
+
+For each `created` row, Zest persists **two** rows server-side, written sequentially within the same request (not wrapped in a single transaction — a `created` response means both writes succeeded):
+
+| Collection | Role | Notes |
+| ---------- | ---- | ----- |
+| HoldCo `People` | Identity record. Holds PII, `kycManagedBy: "partner"`, and the `(client_id, partnerInvestorId)` mapping. | Returned as `zestPersonId` in the row response. |
+| DIFC `User` | Platform-side account paired to the Person. Carries partner-onboarded defaults (`email_is_verified: true`, OTP method `email`, deterministic placeholder phone). | Internal — used by subscription, signed-form, and funding endpoints to resolve the investor by `personId`. |
+
+This pairing is why the downstream `POST /v1/spvs/.../subscriptions` and the two upload endpoints accept `personId` directly: the `User` row is what they look up. If you ever see `404 not_found` on a subscription create for a `zestPersonId` returned by `POST /v1/investors`, treat it as a server-side bug and surface the `errorId` to Zest support — never retry the investor create as a workaround.
+
 ## Partial-success semantics
 
 The endpoint **always returns `200 OK`** with a per-row result envelope. A single bad row never fails the batch.
@@ -44,12 +55,12 @@ The endpoint **always returns `200 OK`** with a per-row result envelope. A singl
 {
   "results": [
     {
-      "partnerInvestorId": "monark-inv-7341",
+      "partnerInvestorId": "acme-inv-7341",
       "status": "created",
       "zestPersonId": "psn_abc123"
     },
     {
-      "partnerInvestorId": "monark-inv-7342",
+      "partnerInvestorId": "acme-inv-7342",
       "status": "failed",
       "error": {
         "code": "format",
@@ -59,7 +70,7 @@ The endpoint **always returns `200 OK`** with a per-row result envelope. A singl
       }
     },
     {
-      "partnerInvestorId": "monark-inv-7341",
+      "partnerInvestorId": "acme-inv-7341",
       "status": "already_exists",
       "zestPersonId": "psn_abc123"
     }

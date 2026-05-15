@@ -39,6 +39,10 @@ Emitted after the partner uploads a wire-transfer receipt via `POST /v1/spvs/{sp
   Zest person id of the investor.
 </ResponseField>
 
+<ResponseField name="partnerInvestorId" type="string">
+  Partner-side investor id when the originating subscription carried one. Omitted otherwise.
+</ResponseField>
+
 <ResponseField name="fundingReceiptUrl" type="string" required>
   Time-limited signed URL of the stored receipt.
 </ResponseField>
@@ -70,10 +74,11 @@ Emitted after the partner uploads a wire-transfer receipt via `POST /v1/spvs/{sp
     "subscriptionSlug": "sub_p9q8r7",
     "spvSlug": "veh_klm456",
     "personId": "psn_abc123",
+    "partnerInvestorId": "acme-inv-7341",
     "fundingReceiptUrl": "https://storage.zestequity.com/receipts/sub_p9q8r7.pdf?...",
     "amount": "50000.00",
     "currency": "USD",
-    "wireReference": "MNK-WIRE-20260507-9921",
+    "wireReference": "ACME-WIRE-20260507-9921",
     "uploadedAt": "2026-05-07T16:21:09.000Z"
   }
 }

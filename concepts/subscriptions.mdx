@@ -16,6 +16,16 @@ This matters because:
 
 You never need to know the underlying Bid id; the partner-visible `subscriptionSlug` is stable across the lifecycle.
 
+## Server-side projections
+
+Each row in a successful `POST /v1/spvs/{slug}/subscriptions` call produces three internal rows as part of the same request:
+
+| Row | Visible to partner? | Purpose |
+| --- | ------------------- | ------- |
+| `Bid` (`source = partner-api`) | Yes (as the subscription). | Drives the existing internal investment workflow. |
+| Shadow `OpportunityBidder` (status: `partner-managed`) | No. | Lets the existing Zest admin UI list partner-sourced subscriptions alongside Zest-native bidders for the same Opportunity. Read-only; partner actions still flow through the v1 endpoints. |
+| Stored payload metadata on the Bid (partner ids, share class) | Echoed in webhooks. | Lets webhook envelopes carry `partnerSubscriptionId` / `partnerInvestorId` without an extra lookup. |
+
 ## Lifecycle
 
 ```
@@ -44,6 +54,19 @@ You never need to know the underlying Bid id; the partner-visible `subscriptionS
    │  status: "completed"     │  ◄── subscription.completed
    └──────────────────────────┘
 ```
+
+## `subscription.completed` delivery
+
+`subscription.completed` is **eventually consistent**:
+
+1. When a Zest admin marks the underlying Bid `Completed`, the system attempts to emit `subscription.completed` synchronously.
+2. If that synchronous emit was skipped (admin path bypassed the helper, queue back-pressure, transient error), a reconciler actor runs on a 60-second cadence and emits the webhook for any partner-sourced Bid whose `partner_webhook_subscription_completed_fired_at` flag is still unset.
+
+Practical implications for partners:
+
+- You **will** receive exactly one `subscription.completed` per subscription, even if the synchronous path drops it.
+- The webhook may arrive up to ~60 seconds after the admin action, not instantly.
+- Idempotency is enforced via the flag — the reconciler never double-fires.
 
 ## Strict order: forms before fundings
 
