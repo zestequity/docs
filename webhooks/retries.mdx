@@ -16,9 +16,7 @@ Zest delivers events with **at-least-once** semantics. Any non-2xx response — 
 | 5 | 2 hours | 2h 35m 30s |
 | 6 | 12 hours | 14h 35m 30s |
 
-After attempt 6 fails, the delivery moves to the **dead-letter** state. Zest retains it indefinitely; you can replay individual deliveries via the admin tooling once the underlying issue is fixed.
-
-The schedule lives in code as `WEBHOOK_RETRY_DELAYS_SECONDS = (30, 300, 1800, 7200, 43200)`.
+After attempt 6 fails, the delivery moves to the **dead-letter** state. Zest retains dead-letter deliveries indefinitely for later replay.
 
 ## What counts as a failure
 
@@ -28,33 +26,13 @@ The schedule lives in code as `WEBHOOK_RETRY_DELAYS_SECONDS = (30, 300, 1800, 72
 
 ## Idempotency expectations
 
-Because retries are guaranteed under failure conditions and possible under transient successes, your handler **must** be idempotent. The `eventId` field is purpose-built for dedup:
+Because retries are guaranteed under failure conditions and possible under transient successes, your handler **must** be idempotent. The `eventId` field is purpose-built for dedup — persist it with at least a 24-hour TTL and short-circuit on replays. The full retry chain spans just under 15 hours, so a 24-hour window safely covers duplicates from any attempt.
 
-```python
-# Pseudocode
-seen = redis.set(f"webhook:dedup:{event['eventId']}", "1", ex=86400, nx=True)
-if not seen:
-    return 200  # already processed; ack and skip
-process(event)
-```
+## If you suspect a dropped event
 
-Use a 24-hour TTL — well past the longest cumulative wait (14h 35m).
-
-## Why a 24h dedup window?
-
-The full retry chain is just under 15 hours. A duplicate can therefore arrive almost a day after the first attempt. Setting the dedup TTL to 24h is a safe, simple default.
-
-## Dead-letter recovery
-
-Operations on Zest's side can:
-
-1. List dead-letter deliveries: `bin/cli webhook-deliveries list --status=dead`.
-2. Retry an individual delivery: `bin/cli webhook-deliveries retry <delivery_id>`.
-
-If you suspect a dropped event, contact `partners@zestequity.com` with the affected resource slug and a time window — operators can locate and replay the relevant deliveries.
+Contact `partners@zestequity.com` with the affected resource slug and a time window.
 
 ## Recommendations
 
 - Process the event **after** acknowledging with 200. Long synchronous processing inside the request hot path will hit the 10-second timeout and trigger spurious retries.
 - Log `eventId`, `eventType`, and `occurredAt` on every receipt for support correlation.
-- When testing on a new endpoint, expect to see a small replay tail as your code stabilises — the dedup recipe above protects you.

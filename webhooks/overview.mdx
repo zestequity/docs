@@ -48,16 +48,9 @@ Zest delivers lifecycle events to a single partner-registered HTTPS endpoint. Ev
 
 If you process state transitions that depend on order — for example, `subscription.completed` MUST follow `funding_receipt.uploaded` — derive ordering from `occurredAt`, not arrival order. A naive consumer that overwrites state on every receipt may regress when a delayed earlier event arrives second.
 
-## Dedup recipe
+## Dedup
 
-```python
-seen = redis.set(f"webhook:dedup:{event['eventId']}", "1", ex=86400, nx=True)
-if not seen:
-    return 200  # already processed; ack and skip
-process(event)
-```
-
-A 24-hour dedup window safely covers the full retry tail (~14h45m) plus margin.
+Persist `eventId` in your store with at least a 24-hour TTL and reject duplicates. A 24-hour window safely covers the full retry tail (~14h45m) plus margin.
 
 ## What gets delivered
 

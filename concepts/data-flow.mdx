@@ -7,46 +7,6 @@ This page walks the canonical happy path for a partner integration. Use it as a 
 
 ## High-level sequence
 
-```
-   Partner UI                Zest Partner API                  Zest Admin / Backend
-   ─────────                  ────────────────                  ────────────────────
-
-   1. Submit SPV ───────►  POST /v1/spv-requests
-                                        │
-                                        ▼
-                            spv_request.created ────────────►  Admin reviews
-                                                                       │
-                                                                       ▼
-   2. Inform user  ◄──── spv_request.completed  ◄────────  Admin approves
-      "SPV is live"                  (materialised refs:
-                                      opp / veh / sp / spc)
-
-   3. Onboard      ───────►  POST /v1/investors
-      investors                          │
-                              investor.created (per row)
-                                          │
-   4. Create       ───────►  POST /v1/spvs/{slug}/subscriptions
-      subscriptions                       │
-                              subscription.created (per row)
-
-   5. Upload       ───────►  POST .../forms (multipart)
-      signed form                          │
-                              signed_subscription_form.uploaded
-
-   6. Upload       ───────►  POST .../fundings (multipart + amount + ref)
-      funding receipt                     │
-                              funding_receipt.uploaded
-                                          │
-                                          ▼
-                                     Admin reconciles wire
-                                          │
-                                          ▼
-   7. Notify user  ◄──── subscription.completed  ◄────────  Admin marks Bid Completed
-      "Investment is live"
-```
-
-## Mermaid alternative
-
 ```mermaid
 sequenceDiagram
     participant UI as Partner UI
@@ -92,7 +52,6 @@ In both cases, persist your local state machine and react to the corresponding w
 
 Within a single subscription:
 
-- `forms` MUST succeed before `fundings`. Out-of-order uploads return `409 conflict`.
 - Both endpoints accept files up to **10 MB** and only PDF / JPEG / PNG / WEBP.
 
 ## Failure handling cheatsheet

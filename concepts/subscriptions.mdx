@@ -1,66 +1,38 @@
 ---
 title: "Subscriptions"
-description: "What a Zest subscription is, how it maps onto an internal Bid, and the strict order that forms-then-fundings must follow."
+description: "What a Zest subscription is and the strict order that forms-then-fundings must follow."
 ---
 
 A **subscription** is a single investor's commitment to deploy capital into a single SPV at a specified share class. Partners create subscriptions in bulk per SPV via `POST /v1/spvs/{slug}/subscriptions`.
 
-## Internal model
-
-Internally, every subscription **auto-creates a Bid row** with `source=partner-api`. There is no separate "Subscription" collection on the Zest side — the partner-visible projection is curated from the Bid.
-
-This matters because:
-
-- Zest's internal investment workflow already operates on Bids; partner-sourced subscriptions inherit that machinery for free.
-- Admin-side actions (e.g. mark-as-completed) are Bid actions that emit subscription-shaped webhooks (`subscription.completed`).
-
-You never need to know the underlying Bid id; the partner-visible `subscriptionSlug` is stable across the lifecycle.
-
-## Server-side projections
-
-Each row in a successful `POST /v1/spvs/{slug}/subscriptions` call produces three internal rows as part of the same request:
-
-| Row | Visible to partner? | Purpose |
-| --- | ------------------- | ------- |
-| `Bid` (`source = partner-api`) | Yes (as the subscription). | Drives the existing internal investment workflow. |
-| Shadow `OpportunityBidder` (status: `partner-managed`) | No. | Lets the existing Zest admin UI list partner-sourced subscriptions alongside Zest-native bidders for the same Opportunity. Read-only; partner actions still flow through the v1 endpoints. |
-| Stored payload metadata on the Bid (partner ids, share class) | Echoed in webhooks. | Lets webhook envelopes carry `partnerSubscriptionId` / `partnerInvestorId` without an extra lookup. |
-
 ## Lifecycle
 
-```
-   POST /v1/spvs/{slug}/subscriptions
-              │
-              ▼
-   ┌──────────────────────┐
-   │  status: "pending"   │  ◄── subscription.created webhook fires
-   └──────────┬───────────┘
-              │
-              │  POST .../forms (signed PDF / image)
-              ▼
-   ┌──────────────────────────┐
-   │  signed form on record   │  ◄── signed_subscription_form.uploaded
-   └──────────┬───────────────┘
-              │
-              │  POST .../fundings (wire-receipt + amount/currency/wireRef)
-              ▼
-   ┌──────────────────────────────┐
-   │  funding receipt on record   │  ◄── funding_receipt.uploaded
-   └──────────┬───────────────────┘
-              │
-              │  Zest admin marks Bid Completed
-              ▼
-   ┌──────────────────────────┐
-   │  status: "completed"     │  ◄── subscription.completed
-   └──────────────────────────┘
+```mermaid
+stateDiagram-v2
+    [*] --> pending: POST /v1/spvs/{slug}/subscriptions
+    pending: status "pending"
+    pending --> signed_form: POST .../forms (emits signed_subscription_form.uploaded)
+    signed_form: signed form on record
+    signed_form --> funding_receipt: POST .../fundings (emits funding_receipt.uploaded)
+    funding_receipt: funding receipt on record
+    funding_receipt --> completed: Zest admin marks Bid Completed
+    completed: status "completed"
+    completed --> [*]
+
+    note right of pending
+        emits subscription.created
+    end note
+    note right of completed
+        emits subscription.completed
+    end note
 ```
 
 ## `subscription.completed` delivery
 
 `subscription.completed` is **eventually consistent**:
 
-1. When a Zest admin marks the underlying Bid `Completed`, the system attempts to emit `subscription.completed` synchronously.
-2. If that synchronous emit was skipped (admin path bypassed the helper, queue back-pressure, transient error), a reconciler actor runs on a 60-second cadence and emits the webhook for any partner-sourced Bid whose `partner_webhook_subscription_completed_fired_at` flag is still unset.
+1. When a Zest admin marks the subscription `Completed`, the system attempts to emit `subscription.completed` synchronously.
+2. If that synchronous emit was skipped (admin path bypassed the helper, queue back-pressure, transient error), a reconciler runs on a 60-second cadence and emits the webhook for any subscription that hasn't yet received its `subscription.completed`.
 
 Practical implications for partners:
 

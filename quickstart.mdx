@@ -53,6 +53,10 @@ Response:
 }
 ```
 
+<Note>
+Your `templateId` is assigned by Zest during partner onboarding. Use the value you were given for `<your_template_id>` below.
+</Note>
+
 ## 3. Submit an SPV request
 
 ```bash
@@ -62,7 +66,7 @@ curl -X POST https://sandbox.api.zestequity.com/v1/spv-requests \
   -H "Content-Type: application/json" \
   -H "Idempotency-Key: $(uuidgen)" \
   -d '{
-    "templateId": "syndicate_secondary",
+    "templateId": "<your_template_id>",
     "templateVersion": "1.0.0",
     "attributes": {
       "underlyingCompanySlug": "co_acme",
@@ -84,7 +88,7 @@ Successful response (`201 Created`):
 {
   "spvRequestSlug": "svr_a1b2c3",
   "status": "pending-review",
-  "templateId": "syndicate_secondary",
+  "templateId": "<your_template_id>",
   "templateVersion": "1.0.0",
   "tenantSlug": "acme",
   "clientId": "client_xyz",
@@ -136,7 +140,7 @@ resp = requests.post(
         "Idempotency-Key": str(uuid.uuid4()),
     },
     json={
-        "templateId": "syndicate_secondary",
+        "templateId": "<your_template_id>",
         "templateVersion": "1.0.0",
         "attributes": {
             "underlyingCompanySlug": "co_acme",
@@ -150,7 +154,65 @@ resp = requests.post(
 print(resp.status_code, resp.json())
 ```
 
-## 5. Verify the webhook
+## 5. Same call in Node.js
+
+```js
+import { SignJWT, importPKCS8 } from "jose";
+import { randomUUID } from "node:crypto";
+
+const CLIENT_ID = process.env.ZEST_CLIENT_ID;
+const PRIVATE_KEY_PEM = process.env.ZEST_PRIVATE_KEY;
+const BASE_URL = "https://sandbox.api.zestequity.com";
+
+async function run() {
+  const privateKey = await importPKCS8(PRIVATE_KEY_PEM, "EdDSA");
+  const now = Math.floor(Date.now() / 1000);
+
+  const assertion = await new SignJWT({ client_id: CLIENT_ID })
+    .setProtectedHeader({ alg: "EdDSA" })
+    .setIssuer("https://your-api.example.com")
+    .setSubject(CLIENT_ID)
+    .setAudience(BASE_URL)
+    .setIssuedAt(now)
+    .setExpirationTime(now + 60)
+    .sign(privateKey);
+
+  const tokenRes = await fetch(`${BASE_URL}/v1/oauth2/tokens`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+      assertion,
+    }),
+  });
+  const { accessToken } = await tokenRes.json();
+
+  const res = await fetch(`${BASE_URL}/v1/spv-requests`, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${accessToken}`,
+      "Idempotency-Key": randomUUID(),
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      templateId: "<your_template_id>",
+      templateVersion: "1.0.0",
+      attributes: {
+        underlyingCompanySlug: "co_acme",
+        currency: "USD",
+        shareClasses: [
+          { name: "Class A", managementFeePercent: "2.0", carryPercent: "20.0" },
+        ],
+      },
+    }),
+  });
+  console.log(res.status, await res.json());
+}
+
+run();
+```
+
+## 6. Verify the webhook
 
 You should receive a `POST` to your webhook URL with body:
 
@@ -161,7 +223,7 @@ You should receive a `POST` to your webhook URL with body:
   "occurredAt": "2026-05-07T12:00:00Z",
   "data": {
     "spvRequestSlug": "svr_a1b2c3",
-    "templateId": "syndicate_secondary",
+    "templateId": "<your_template_id>",
     "templateVersion": "1.0.0",
     "tenantSlug": "acme",
     "attributes": { "...": "..." },

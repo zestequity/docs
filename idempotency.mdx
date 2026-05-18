@@ -41,12 +41,12 @@ import uuid
 import requests
 
 response = requests.post(
-    "https://api.zestequity.com/v1/spv-requests",
+    "https://public.api.zestequity.com/v1/spv-requests",
     headers={
         "Authorization": f"Bearer {token}",
         "Idempotency-Key": str(uuid.uuid4()),
     },
-    json={"templateId": "syndicate_secondary", "...": "..."},
+    json={"templateId": "<your_template_id>", "...": "..."},
 )
 ```
 
@@ -55,14 +55,14 @@ response = requests.post(
 ```js
 import { randomUUID } from "node:crypto";
 
-const res = await fetch("https://api.zestequity.com/v1/spv-requests", {
+const res = await fetch("https://public.api.zestequity.com/v1/spv-requests", {
   method: "POST",
   headers: {
     "Authorization": `Bearer ${token}`,
     "Idempotency-Key": randomUUID(),
     "Content-Type": "application/json",
   },
-  body: JSON.stringify({ templateId: "syndicate_secondary" /* ... */ }),
+  body: JSON.stringify({ templateId: "<your_template_id>" /* ... */ }),
 });
 ```
 
@@ -77,7 +77,6 @@ const res = await fetch("https://api.zestequity.com/v1/spv-requests", {
 
 - TTL: **24 hours** from the first call.
 - Scope: `(client_id, idempotency_key)`. Two different partner applications can use the same key without collision.
-- Storage: Redis. Cache miss falls back to a real execution, so very rare key drops are bounded by re-running the request — exactly the same outcome as the first call would have produced.
 
 ## Investor-row idempotency (different layer)
 

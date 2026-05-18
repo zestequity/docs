@@ -861,7 +861,7 @@
           "Investors"
         ],
         "summary": "Bulk create investors",
-        "description": "Creates one or more partner-managed investor records. Always returns 200 with a per-row { status, zestPersonId | error } result keyed by `partnerInvestorId`. Idempotent across replays: a repeated `partnerInvestorId` returns the existing Zest person id. `Idempotency-Key` is optional and provides response-level caching.",
+        "description": "Creates one or more investor records. Always returns 200 with a per-row { status, zestPersonId | error } result keyed by `partnerInvestorId`. Idempotent across replays: a repeated `partnerInvestorId` returns the existing Zest person id. `Idempotency-Key` is optional and provides response-level caching.",
         "operationId": "bulkCreateInvestors",
         "parameters": [
           {
@@ -949,7 +949,7 @@
           "Subscriptions"
         ],
         "summary": "Create subscriptions for one SPV",
-        "description": "Creates one or more partner-managed subscription rows for a single SPV. Each subscription auto-creates a Bid under the hood (source=partner-api). Per investor: lump sum + share class. `Idempotency-Key` is optional.",
+        "description": "Creates one or more subscription rows for a single SPV. Per investor: lump sum + share class. `Idempotency-Key` is optional.",
         "operationId": "createSubscriptions",
         "parameters": [
           {
@@ -1816,8 +1816,8 @@
           "templateId": {
             "type": "string",
             "title": "Templateid",
-            "description": "Contract template id (e.g. 'syndicate_secondary').",
-            "example": "syndicate_secondary"
+            "description": "Contract template id provided during onboarding.",
+            "example": "<your_template_id>"
           },
           "templateVersion": {
             "type": "string",
@@ -2114,11 +2114,11 @@
     },
     {
       "name": "Investors",
-      "description": "Bulk-create partner-managed investor records with partial-success semantics. Each row carries its own status / error envelope so a single bad row never fails the batch."
+      "description": "Bulk-create investor records with partial-success semantics. Each row carries its own status / error envelope so a single bad row never fails the batch."
     },
     {
       "name": "Subscriptions",
-      "description": "Create one or more partner-managed subscriptions for a single SPV. Each subscription auto-creates a Bid under the hood with `source=partner-api`."
+      "description": "Create one or more subscriptions for a single SPV."
     },
     {
       "name": "Subscription Forms",

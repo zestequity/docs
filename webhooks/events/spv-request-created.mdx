@@ -32,7 +32,7 @@ Emitted immediately after `POST /v1/spv-requests` succeeds (HTTP `201 Created`).
 </ResponseField>
 
 <ResponseField name="templateId" type="string" required>
-  Contract template id used (e.g. `syndicate_secondary`).
+  Contract template id used (e.g. `<your_template_id>`).
 </ResponseField>
 
 <ResponseField name="templateVersion" type="string" required>
@@ -60,7 +60,7 @@ Emitted immediately after `POST /v1/spv-requests` succeeds (HTTP `201 Created`).
   "occurredAt": "2026-05-07T12:00:00.123Z",
   "data": {
     "spvRequestSlug": "svr_a1b2c3",
-    "templateId": "syndicate_secondary",
+    "templateId": "<your_template_id>",
     "templateVersion": "1.0.0",
     "tenantSlug": "acme",
     "attributes": {

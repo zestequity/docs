@@ -28,7 +28,7 @@ The Zest Partner API uses the **OAuth 2.0 JWT-Bearer assertion grant** ([RFC 752
 | ----- | ----------- |
 | `iss` | Your API base URL (acts as your issuer identifier). |
 | `sub` | Your `client_id`. |
-| `aud` | Zest API base URL of the environment you're calling — exactly `https://api.zestequity.com` or `https://sandbox.api.zestequity.com`. |
+| `aud` | Zest API base URL of the environment you're calling — exactly `https://public.api.zestequity.com` or `https://sandbox.api.zestequity.com`. |
 | `client_id` | Your `client_id` (must match `sub`). |
 | `iat` | Issued-at, unix seconds. |
 | `exp` | Expiry, unix seconds. Keep short — 60 seconds is recommended. |
@@ -39,7 +39,7 @@ The JWT MUST be signed with EdDSA. Other algorithms are rejected.
 
 ```http
 POST /v1/oauth2/tokens HTTP/1.1
-Host: api.zestequity.com
+Host: public.api.zestequity.com
 Content-Type: application/x-www-form-urlencoded
 
 grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=<signed-JWT>
@@ -66,7 +66,7 @@ import requests
 
 CLIENT_ID = "client_xyz"
 PRIVATE_KEY = open("ed25519-private.pem").read()
-BASE_URL = "https://api.zestequity.com"
+BASE_URL = "https://public.api.zestequity.com"
 
 def mint_access_token() -> str:
     now = int(time.time())
@@ -100,7 +100,7 @@ def mint_access_token() -> str:
 import { SignJWT, importPKCS8 } from "jose";
 
 const CLIENT_ID = "client_xyz";
-const BASE_URL = "https://api.zestequity.com";
+const BASE_URL = "https://public.api.zestequity.com";
 const PRIVATE_KEY_PEM = process.env.ZEST_PRIVATE_KEY;
 
 async function mintAccessToken() {
@@ -154,7 +154,7 @@ async function mintAccessToken() {
 ## Inspecting your token
 
 ```bash
-curl https://api.zestequity.com/v1/oauth2/info \
+curl https://public.api.zestequity.com/v1/oauth2/info \
   -H "Authorization: Bearer $TOKEN"
 ```
 

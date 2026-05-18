@@ -11,29 +11,18 @@ DIFC regulation requires human compliance review before an SPV becomes investabl
 
 ## Lifecycle
 
-```
-                     POST /v1/spv-requests
-                              │
-                              ▼
-                     ┌────────────────────┐
-                     │  pending-review    │  ◄── partner can DELETE here
-                     └────────┬───────────┘
-            admin              │              admin
-            approves           │              rejects
-                ▼              │                ▼
-        ┌────────────┐         │        ┌──────────────┐
-        │  approved  │         │        │   rejected   │
-        └─────┬──────┘         │        └──────────────┘
-              │                ▼
-              │        ┌────────────────┐
-              │        │   cancelled    │
-              │        └────────────────┘
-              ▼
-   ┌─────────────────────┐
-   │  SPV materialised   │
-   │  (Opp + Veh + SP +  │
-   │   SPC created)      │
-   └─────────────────────┘
+```mermaid
+stateDiagram-v2
+    [*] --> pending_review: POST /v1/spv-requests
+    pending_review: pending-review
+    pending_review --> approved: admin approves
+    pending_review --> rejected: admin rejects
+    pending_review --> cancelled: partner DELETE
+    approved --> materialised: Opp + Veh + SP + SPC created
+    materialised: SPV materialised
+    rejected --> [*]
+    cancelled --> [*]
+    materialised --> [*]
 ```
 
 | State | Description | Webhook |
@@ -56,7 +45,9 @@ The four partner-visible states above are stable; Zest never emits intermediate 
 
 When you `POST /v1/spv-requests`, the `attributes` map is validated against the contract template referenced by `templateId` + `templateVersion`. A failure returns `400 validation_error` with one or more `validationErrors[]` rows; see [Errors](/errors) for the full code vocabulary.
 
-Every contract template is read-only and versioned; `GET /v1/contracts/templates/{version}` lists them.
+Every contract template is read-only and versioned; `GET /v1/contracts/templates/{version}` lists them. Current available version: **`1.0.0`**.
+
+Your `templateId` is assigned by Zest during partner onboarding.
 
 ## Idempotency
 

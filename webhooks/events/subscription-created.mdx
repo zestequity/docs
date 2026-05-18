@@ -7,8 +7,6 @@ description: "Fired once per row created by POST /v1/spvs/{slug}/subscriptions."
 
 Emitted once per subscription successfully created by `POST /v1/spvs/{spv_slug}/subscriptions`. The subscription is in `pending` status and is ready to receive a signed form upload.
 
-Under the hood, each subscription auto-creates a Bid with `source=partner-api`.
-
 ## Envelope fields
 
 <ResponseField name="eventId" type="string" required>

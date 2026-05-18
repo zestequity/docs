@@ -36,16 +36,7 @@ Body:
 }
 ```
 
-## What gets created server-side
-
-For each `created` row, Zest persists **two** rows server-side, written sequentially within the same request (not wrapped in a single transaction — a `created` response means both writes succeeded):
-
-| Collection | Role | Notes |
-| ---------- | ---- | ----- |
-| HoldCo `People` | Identity record. Holds PII, `kycManagedBy: "partner"`, and the `(client_id, partnerInvestorId)` mapping. | Returned as `zestPersonId` in the row response. |
-| DIFC `User` | Platform-side account paired to the Person. Carries partner-onboarded defaults (`email_is_verified: true`, OTP method `email`, deterministic placeholder phone). | Internal — used by subscription, signed-form, and funding endpoints to resolve the investor by `personId`. |
-
-This pairing is why the downstream `POST /v1/spvs/.../subscriptions` and the two upload endpoints accept `personId` directly: the `User` row is what they look up. If you ever see `404 not_found` on a subscription create for a `zestPersonId` returned by `POST /v1/investors`, treat it as a server-side bug and surface the `errorId` to Zest support — never retry the investor create as a workaround.
+On success, the response returns `zestPersonId` per row. Use it on subsequent `POST /v1/spvs/{slug}/subscriptions`, `POST .../forms`, and `POST .../fundings` calls to identify the investor. If you ever see `404 not_found` on a subscription create for a `zestPersonId` returned by `POST /v1/investors`, surface the `errorId` to Zest support — never retry the investor create as a workaround.
 
 ## Partial-success semantics
 
@@ -92,7 +83,7 @@ The endpoint **always returns `200 OK`** with a per-row result envelope. A singl
 - Present on every row (no nulls).
 - Stable across retries.
 
-Zest persists the `(client_id, partnerInvestorId) -> zestPersonId` mapping. Replaying the same id always returns the existing `zestPersonId`, never a fresh one. This makes the endpoint safe to retry under any failure mode — duplicates are dedup'd server-side.
+Zest persists the `(client_id, partnerInvestorId) -> zestPersonId` mapping. Replaying the same id always returns the existing `zestPersonId`, never a fresh one. This makes the endpoint safe to retry under any failure mode — duplicates are deduplicated.
 
 ## Idempotency layers
 
@@ -107,7 +98,7 @@ For interactive single-row creates, add `Idempotency-Key` so the cached response
 
 ## Webhook fan-out
 
-Each `created` row fires one [`investor.created`](/webhooks/events/investor-created) webhook with the same payload as the row response, plus `kycManagedBy: "partner"` for downstream consumers.
+Each `created` row fires one [`investor.created`](/webhooks/events/investor-created) webhook with the same payload as the row response, plus `kycManagedBy: "partner"` so you can confirm the partner-managed flag round-tripped.
 
 `already_exists` and `failed` rows do **not** fire webhooks — replays are silent on the wire.
 
