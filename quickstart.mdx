@@ -33,6 +33,10 @@ Build a JWT with the following claims:
 
 Sign it with EdDSA using the private key registered with Zest.
 
+<Note>
+New to JWT assertions? See [Curity's JWT-assertion walkthrough](https://curity.io/resources/learn/jwt-assertion/) for an end-to-end primer on the grant type.
+</Note>
+
 ## 2. Exchange it for an access token
 
 ```bash
@@ -48,16 +52,18 @@ Response:
 ```json
 {
   "accessToken": "eyJ...",
+  "refreshToken": "eyJ...",
   "tokenType": "Bearer",
-  "expiresIn": 3600
+  "expiresIn": 3600,
+  "refreshExpiresIn": 2592000
 }
 ```
+
+## 3. Submit an SPV request
 
 <Note>
 Your `templateId` is assigned by Zest during partner onboarding. Use the value you were given for `<your_template_id>` below.
 </Note>
-
-## 3. Submit an SPV request
 
 ```bash
 curl -X POST https://sandbox.api.zestequity.com/v1/spv-requests \

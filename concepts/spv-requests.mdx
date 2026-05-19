@@ -5,10 +5,6 @@ description: "What an SPV request is, what state machine it follows, and how par
 
 An **SPV request** is a partner-submitted intent to spin up a new Special Purpose Vehicle on the Zest platform. Zest admins review every request; on approval the SPV is materialised — i.e. an Opportunity, Vehicle, SP, and SPC are all created and committed in one transaction.
 
-## Why a request, not a direct create?
-
-DIFC regulation requires human compliance review before an SPV becomes investable. The request-then-approve pattern keeps Zest's regulatory perimeter clean while letting partners offer "create new SPV" actions inside their own UI.
-
 ## Lifecycle
 
 ```mermaid
@@ -53,16 +49,3 @@ Your `templateId` is assigned by Zest during partner onboarding.
 
 `Idempotency-Key` is **required** on `POST /v1/spv-requests`. Generate a UUIDv4 per logical click; replay the same key after a network failure to safely reuse the original response. See [Idempotency](/idempotency).
 
-## What happens on approval
-
-Admin approval atomically:
-
-1. Materialises an Opportunity and a Vehicle row.
-2. Creates the segregated portfolio (SP) and segregated portfolio company (SPC) rows.
-3. Persists slugs of all four onto the SPV request as `materialisedRefs`.
-4. Emits `spv_request.completed` with the materialised refs.
-
-Partners typically use the materialised refs to:
-
-- Surface "your SPV is live" to the originating user.
-- Pre-fill subscription flows with the new Vehicle's `vehicleSlug`.
