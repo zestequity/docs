@@ -12,7 +12,7 @@ The Zest Partner API uses the **OAuth 2.0 JWT-Bearer assertion grant** ([RFC 752
     Sign a JWT with the EdDSA private key registered with Zest. Claims are listed below.
   </Step>
   <Step title="POST to /v1/oauth2/tokens">
-    Body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=<JWT>`. Response: `{ accessToken, tokenType, expiresIn }`.
+    Body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=<JWT>`. Response: `{ accessToken, refreshToken, tokenType, expiresIn, refreshExpiresIn }`.
   </Step>
   <Step title="Send the access token">
     Add `Authorization: Bearer <accessToken>` to every subsequent request.
@@ -50,10 +50,53 @@ Successful response:
 ```json
 {
   "accessToken": "eyJhbGciOi...",
+  "refreshToken": "eyJhbGciOi...",
   "tokenType": "Bearer",
-  "expiresIn": 3600
+  "expiresIn": 3600,
+  "refreshExpiresIn": 2592000
 }
 ```
+
+## Refresh the access token
+
+Each token exchange returns a long-lived **refresh token** (`refreshToken`, default lifetime 30 days). When your access token is close to expiring, redeem the refresh token for a fresh pair without re-doing the JWT assertion dance.
+
+### Refresh request
+
+```http
+POST /v1/oauth2/tokens HTTP/1.1
+Host: public.api.zestequity.com
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=refresh_token&refresh_token=<your-refresh-token>
+```
+
+Successful response — same shape as the JWT-bearer grant:
+
+```json
+{
+  "accessToken": "eyJhbGciOi...",
+  "refreshToken": "eyJhbGciOi...",
+  "tokenType": "Bearer",
+  "expiresIn": 3600,
+  "refreshExpiresIn": 2592000
+}
+```
+
+### Rotation semantics
+
+The refresh token **rotates on every use**. As soon as we hand you a new pair, the previous refresh token stops working — store the new one immediately and discard the old one. If you ever try to redeem the old refresh token again (for example, after a crash that lost the new one), the call returns `401` **and** invalidates the entire chain. In that case, mint a fresh JWT assertion and re-do the JWT-bearer flow.
+
+### Common pitfalls
+
+<AccordionGroup>
+  <Accordion title="401 on a refresh that worked moments ago">
+    The chain has been invalidated — usually because the previous refresh token was redeemed twice. Re-do the JWT-bearer flow to start a new chain.
+  </Accordion>
+  <Accordion title="When to refresh">
+    Refresh proactively — for example, at half of `expiresIn` elapsed, or on the first `401` from an API call. Don't wait until exactly `iat + expiresIn`; clock skew and request latency can cause edge-of-window failures.
+  </Accordion>
+</AccordionGroup>
 
 ## Code samples
 
