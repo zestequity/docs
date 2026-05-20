@@ -6,7 +6,7 @@
   },
   "servers": [
     {
-      "url": "https://public-api-staging.zestequity.com",
+      "url": "https://sandbox-api.zestequity.com",
       "description": "Staging"
     }
   ],
