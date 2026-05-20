@@ -4,6 +4,12 @@
     "title": "Zest equity public api API",
     "version": "0.1.0"
   },
+  "servers": [
+    {
+      "url": "https://api-staging.zestequity.com",
+      "description": "Staging"
+    }
+  ],
   "paths": {
     "/": {
       "get": {
