@@ -43,7 +43,15 @@ When you `POST /v1/spv-requests`, the `attributes` map is validated against the 
 
 Every contract template is read-only and versioned; `GET /v1/contracts/templates/{version}` lists them. Current available version: **`1.0.0`**.
 
-Your `templateId` is assigned by Zest during partner onboarding.
+Your `templateId` is assigned by Zest during onboarding — see [Contract templates](#contract-templates) below.
+
+## Contract templates
+
+A **contract template** is the schema that validates the `attributes` map you send when you `POST /v1/spv-requests`. Each template encodes a specific deal structure — which fields are required, the allowed value ranges, the allowed share-class shapes — and is versioned independently from your integration.
+
+Your `templateId` is assigned by Zest during partner onboarding. The value is specific to your integration: each partner is provisioned with the template that matches the deal structures we agreed on during commercial scoping, and that pairing is not self-service. You will receive your `templateId` alongside your `clientId` and webhook signing secret — use it verbatim everywhere `<your_template_id>` appears in this documentation.
+
+If your integration needs to support a deal structure outside the template you were assigned, contact `partners@zestequity.com` so we can scope a template update or a new template version.
 
 ## Idempotency
 
