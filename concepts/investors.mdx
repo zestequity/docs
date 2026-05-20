@@ -11,26 +11,52 @@ Partner-managed investor onboarding is the default in the Zest Partner API: you 
 POST /v1/investors
 ```
 
-Body:
+The endpoint accepts an array of individual-investor records. Institutional/entity investors are not supported on this endpoint in v1 — those will surface in a follow-up endpoint.
+
+## Request body
 
 ```json
 {
   "investors": [
     {
       "partnerInvestorId": "acme-inv-7341",
-      "email": "alice@example.com",
+
       "firstName": "Alice",
       "lastName": "Liddell",
       "dateOfBirth": "1985-04-12",
-      "countryOfResidence": "AE"
-    },
-    {
-      "partnerInvestorId": "acme-inv-7342",
-      "email": "bob@example.com",
-      "firstName": "Bob",
-      "lastName": "Marley",
-      "dateOfBirth": "1980-02-06",
-      "countryOfResidence": "JM"
+      "isUSBased": true,
+      "citizenship": "US",
+
+      "email": "alice@example.com",
+      "phoneCountryCode": "1",
+      "phoneNumber": "4155550100",
+
+      "residentialAddress": {
+        "street1": "123 Maple Street",
+        "street2": "Unit 2",
+        "city": "Maple Town",
+        "state": "CA",
+        "zipCode": "94033",
+        "countryCode": "US"
+      },
+      "mailingAddress": {
+        "street1": "123 Maple Street",
+        "street2": "Unit 2",
+        "aptSuiteNo": "Apt 4B",
+        "city": "Maple Town",
+        "state": "CA",
+        "zipCode": "94033",
+        "country": "US"
+      },
+
+      "taxId": "123-45-6789",
+      "hasBackupWithholding": false,
+      "exemptPayeeCode": null,
+
+      "isSubscriptionAdvisorOrERA": false,
+      "qualifiedStatus": "QUALIFIED_PURCHASER",
+
+      "passportNumber": "P12345678"
     }
   ]
 }
@@ -38,9 +64,97 @@ Body:
 
 On success, the response returns `zestPersonId` per row. Use it on subsequent `POST /v1/spvs/{slug}/subscriptions`, `POST .../forms`, and `POST .../fundings` calls to identify the investor. If you ever see `404 not_found` on a subscription create for a `zestPersonId` returned by `POST /v1/investors`, surface the `errorId` to Zest support — never retry the investor create as a workaround.
 
+## Field reference
+
+### Control plane
+
+| Field | Required | Type | Notes |
+| ----- | -------- | ---- | ----- |
+| `partnerInvestorId` | yes | string | Stable partner-side investor identifier. Used for response correlation, idempotent dedupe, webhook correlation. See [Correlation](#correlation-partnerinvestorid). |
+
+### Personal
+
+| Field | Required | Type | Notes |
+| ----- | -------- | ---- | ----- |
+| `firstName` | yes | string | |
+| `lastName` | yes | string | |
+| `dateOfBirth` | yes | string | ISO date `YYYY-MM-DD`. |
+| `isUSBased` | yes | boolean | Your tax-status determination for the investor. Used downstream for W-9 vs W-8 form selection. |
+| `citizenship` | yes | string | ISO-3166 alpha-2 country code (legal nationality). Validated per row. |
+
+### Contact
+
+| Field | Required | Type | Notes |
+| ----- | -------- | ---- | ----- |
+| `email` | yes | string | Must be a valid email. |
+| `phoneCountryCode` | yes | string | Numeric country dialling code without leading `+` (e.g., `"1"` for US, `"971"` for UAE). |
+| `phoneNumber` | yes | string | Subscriber number, no formatting. |
+
+### `residentialAddress` (nested, required)
+
+| Field | Required | Type | Notes |
+| ----- | -------- | ---- | ----- |
+| `street1` | yes | string | |
+| `street2` | no | string \| null | |
+| `city` | yes | string | |
+| `state` | yes | string | State / province / region. No central validation — you're responsible for sending what's correct for the country. |
+| `zipCode` | yes | string | Postal code. |
+| `countryCode` | yes | string | ISO-3166 alpha-2. Validated per row. |
+
+### `mailingAddress` (nested, required)
+
+Used for tax + subscription document delivery. Often identical to `residentialAddress` but separated for jurisdictions where they differ.
+
+| Field | Required | Type | Notes |
+| ----- | -------- | ---- | ----- |
+| `street1` | yes | string | |
+| `street2` | no | string \| null | |
+| `aptSuiteNo` | no | string \| null | Mailing-specific apt/suite designator. |
+| `city` | yes | string | |
+| `state` | yes | string | |
+| `zipCode` | yes | string | |
+| `country` | yes | string | ISO-3166 alpha-2. Note the field name is `country` here, not `countryCode` (matches the source spec). Validated per row. |
+
+### Tax
+
+| Field | Required | Type | Notes |
+| ----- | -------- | ---- | ----- |
+| `taxId` | yes | string | SSN or foreign tax ID. No format validation — send what the investor's jurisdiction requires. |
+| `hasBackupWithholding` | yes (nullable) | boolean \| null | Field must be present; `null` is accepted when unknown. |
+| `exemptPayeeCode` | no | string \| null | IRS exempt payee code if applicable. |
+
+### Compliance
+
+| Field | Required | Type | Notes |
+| ----- | -------- | ---- | ----- |
+| `isSubscriptionAdvisorOrERA` | yes | boolean | Whether the investor is registered as a Subscription Adviser or Exempt Reporting Adviser. Note the `ERA` acronym is uppercase on the wire. |
+| `qualifiedStatus` | yes (nullable) | enum \| null | See [Qualified status](#qualified-status) below. |
+
+### Identification
+
+| Field | Required | Type | Notes |
+| ----- | -------- | ---- | ----- |
+| `passportNumber` | yes (nullable) | string \| null | Field must be present; `null` is accepted when unavailable. |
+
+### Required-nullable convention
+
+Three fields (`hasBackupWithholding`, `qualifiedStatus`, `passportNumber`) are **required-nullable**: the key MUST appear in your JSON body, but the value MAY be `null`. Omitting the key entirely returns `400 validation_error`; sending `null` is valid.
+
+## Qualified status
+
+`qualifiedStatus` accepts one of the following enum values, or `null`:
+
+- `QUALIFIED_PURCHASER`
+- `QUALIFIED_CLIENT`
+- `TRUSTEE_QUALIFIED_PURCHASER`
+- `KNOWLEDGEABLE_EMPLOYEE`
+- `KNOWLEDGEABLE_EXECUTIVE`
+
+Any other string value returns `400 validation_error` at the request level.
+
 ## Partial-success semantics
 
-The endpoint **always returns `200 OK`** with a per-row result envelope. A single bad row never fails the batch.
+The endpoint **always returns `200 OK`** with a per-row result envelope. A single bad row never fails the batch (with the exception of request-level validation errors — see [Failure cases](#failure-cases) below).
 
 ```json
 {
@@ -48,22 +162,25 @@ The endpoint **always returns `200 OK`** with a per-row result envelope. A singl
     {
       "partnerInvestorId": "acme-inv-7341",
       "status": "created",
-      "zestPersonId": "psn_abc123"
+      "zestPersonId": "psn_abc123",
+      "error": null
     },
     {
       "partnerInvestorId": "acme-inv-7342",
       "status": "failed",
+      "zestPersonId": null,
       "error": {
-        "code": "format",
-        "field": "dateOfBirth",
-        "message": "dateOfBirth must be YYYY-MM-DD",
+        "code": "invalid_country_code",
+        "field": "citizenship",
+        "message": "Unrecognized country code: USA",
         "retryable": false
       }
     },
     {
-      "partnerInvestorId": "acme-inv-7341",
+      "partnerInvestorId": "acme-inv-7343",
       "status": "already_exists",
-      "zestPersonId": "psn_abc123"
+      "zestPersonId": "psn_def456",
+      "error": null
     }
   ]
 }
@@ -74,6 +191,16 @@ The endpoint **always returns `200 OK`** with a per-row result envelope. A singl
 | `created` | New person row inserted. | Persist the returned `zestPersonId`. Webhook `investor.created` will fire. |
 | `already_exists` | Replay of a previously-created `partnerInvestorId`. | Use the returned `zestPersonId`; no webhook fires. |
 | `failed` | Row-level validation error. | Inspect `error.code` + `error.retryable`. Fix and resubmit. |
+
+### Per-row error codes
+
+| Code | Triggered when | `retryable` |
+| ---- | -------------- | ----------- |
+| `invalid_format` | `dateOfBirth` is not ISO `YYYY-MM-DD`. | false |
+| `invalid_country_code` | `citizenship`, `residentialAddress.countryCode`, or `mailingAddress.country` is not a valid ISO-3166 alpha-2 code. `error.field` carries the wire path of the offending field. | false |
+| `institutional_not_supported` | Row carries `investorType: "institutional"` (entity investors are a separate endpoint). | false |
+| `missing_field` | A nested field expected by Zest was absent. `error.field` carries the name. | false |
+| `server_error` | Unexpected exception while persisting the row. `error.message` is a redacted summary. | true |
 
 ## Correlation: `partnerInvestorId`
 
@@ -98,7 +225,20 @@ For interactive single-row creates, add `Idempotency-Key` so the cached response
 
 ## Webhook fan-out
 
-Each `created` row fires one [`investor.created`](/webhooks/events/investor-created) webhook with the same payload as the row response, plus `kycManagedBy: "partner"` so you can confirm the partner-managed flag round-tripped.
+Each `created` row fires one [`investor.created`](/webhooks/events/investor-created) webhook with a **minimal** payload — only the six fields needed for correlation:
+
+```json
+{
+  "partnerInvestorId": "acme-inv-7341",
+  "zestPersonId": "psn_abc123",
+  "email": "alice@example.com",
+  "firstName": "Alice",
+  "lastName": "Liddell",
+  "kycManagedBy": "partner"
+}
+```
+
+Sensitive fields you sent in the create (such as `taxId`, `passportNumber`, addresses) **do not** appear in the webhook payload — they stay inside Zest. If you need the full investor record later, request a fetch endpoint (currently a deferred follow-up; raise with Zest support).
 
 `already_exists` and `failed` rows do **not** fire webhooks — replays are silent on the wire.
 
@@ -106,12 +246,11 @@ Each `created` row fires one [`investor.created`](/webhooks/events/investor-crea
 
 | Scenario | Behaviour |
 | -------- | --------- |
-| `partnerInvestorId` repeated within the same batch | First wins; subsequent rows fail with `error.code = "duplicate"` row-level. |
-| Email collision with a different `partnerInvestorId` | Row fails with `error.code = "conflict"`, retryable=false. Resolve in your system. |
-| Tenant not provisioned | `403 forbidden` at the request level (no row results). |
+| Missing required field at the request level (e.g., `firstName` absent) | `400 validation_error` for the entire batch; no rows processed. |
+| `qualifiedStatus` not in the enum | `400 validation_error` for the entire batch. |
+| `email` not a valid email | `400 validation_error` for the entire batch. |
+| Invalid ISO country code in any of the three country fields | `200 OK` with per-row `status: "failed"`, `code: "invalid_country_code"`. Other rows in the batch still process. |
+| `partnerInvestorId` repeated within the same batch | First wins; subsequent rows return `already_exists` with the same `zestPersonId`. |
+| Email collision with a different `partnerInvestorId` | Row succeeds and links to the existing Person under the new `partnerInvestorId`. Use stable emails per investor. |
+| Tenant not provisioned for the partner API | `403 forbidden` at the request level. |
 | Token invalid | `401 invalid_token` at the request level. |
-
-## Date and country formats
-
-- `dateOfBirth`: ISO date `YYYY-MM-DD`. Format failures return `error.code = "format"`.
-- `countryOfResidence`: ISO 3166 alpha-2. Optional. Country code mismatches against Zest's risk-rating list propagate to KYC-stage flagging but do not fail the create.
