@@ -1830,15 +1830,26 @@
             "title": "Attributes",
             "description": "Flat attribute map validated against the template.",
             "example": {
-              "underlyingCompanySlug": "co_acme",
-              "shareClasses": [
-                {
-                  "name": "Class A",
-                  "managementFeePercent": "2.0",
-                  "carryPercent": "20.0"
-                }
-              ],
-              "currency": "USD"
+              "deal_name": "Acme Holdings Series A Syndicate",
+              "deal_slug": "acme-series-a-2026",
+              "company_id": "<your_company_id>",
+              "deal_type": "<your_deal_type>",
+              "security_type": "Equity",
+              "currency": "USD",
+              "price_per_share": {"currency": "USD", "value": "36.97"},
+              "is_fixed_price": true,
+              "minimum_ticket_size": {"currency": "USD", "value": "1000"},
+              "start_date": "2026-06-01T00:00:00Z",
+              "status_tag": "Live",
+              "deal_stage": "executing",
+              "investment_summary": "Subscription into Acme Holdings Series A shares.",
+              "deal_documents_title": "Acme Series A Deck",
+              "deal_documents_url": "https://example.com/acme-deck.pdf",
+              "deal_documents_media_type": "pdf",
+              "share_class_name": "Class A",
+              "share_class_slug": "acme-class-a",
+              "link_enabled": true,
+              "private_code": "ACME01"
             }
           }
         },
