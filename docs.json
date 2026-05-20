@@ -1,7 +1,7 @@
 {
   "$schema": "https://mintlify.com/docs.json",
   "theme": "mint",
-  "name": "Zest Partner API",
+  "name": "Zest Public API",
   "description": "Partner-facing API + webhook documentation for the Zest Equity SPaaS platform.",
   "colors": {
     "primary": "#0F172A",

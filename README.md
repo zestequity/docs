@@ -1,6 +1,6 @@
-# Zest Partner API documentation
+# Zest Public API documentation
 
-Source for the Zest Partner API documentation site.
+Source for the Zest Public API documentation site.
 
 This repository is a public mirror of partner-facing documentation
 generated from the internal Zest API monolith. Edits should generally be
