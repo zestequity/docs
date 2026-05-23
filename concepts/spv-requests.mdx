@@ -39,7 +39,7 @@ The four partner-visible states above are stable; Zest never emits intermediate 
 
 ## Correlation patterns
 
-Slugs Zest returns (`opportunitySlug`, `vehicleSlug`, `spSlug`, `spcSlug`, `subscriptionSlug`) are opaque UUID v7 strings. **Don't parse them** — they have no internal structure.
+Slugs Zest server-generates (`opportunitySlug`, `vehicleSlug`, `spSlug`, `subscriptionSlug`) are opaque UUID v7 strings. **Don't parse them** — they have no internal structure. `spcSlug` is partner-supplied (echoed back from the admin's approve request) and may use whatever format the SPC was originally registered with.
 
 Two ways to correlate Zest responses back to your own system:
 
@@ -63,7 +63,7 @@ Example `materialisedRefs` payload (returned on `spv_request.completed`):
   "opportunitySlug": "06a04437-a7c7-7a57-8000-2c45ded5ab3f",
   "vehicleSlug":     "06a04437-b332-7891-8000-71f4c9b821ee",
   "spSlug":          "06a04437-c891-7012-8000-f3b8c4d1a772",
-  "spcSlug":         "06a04437-d4f2-7553-8000-a91e2b87c346"
+  "spcSlug":         "monark-spc-01"
 }
 ```
 
