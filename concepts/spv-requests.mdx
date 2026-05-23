@@ -37,6 +37,36 @@ stateDiagram-v2
 
 The four partner-visible states above are stable; Zest never emits intermediate or internal states on the wire.
 
+## Correlation patterns
+
+Slugs Zest returns (`opportunitySlug`, `vehicleSlug`, `spSlug`, `spcSlug`, `subscriptionSlug`) are opaque UUID v7 strings. **Don't parse them** — they have no internal structure.
+
+Two ways to correlate Zest responses back to your own system:
+
+### Via your `deal_slug` (partner correlation key)
+
+When you submit `POST /v1/spv-requests`, you include `attributes.deal_slug` — a free-form string you control. Zest never uses this value as the canonical opportunity identifier; it's stored separately and echoed back in:
+
+- The `attributes.deal_slug` field of every SPV-request response.
+- The `attributes.deal_slug` field of every SPV-request webhook payload (`spv_request.created`, `spv_request.completed`, `spv_request.rejected`, `spv_request.cancelled`).
+
+`deal_slug` does **not** need to be globally unique — two partners may submit identical values without conflict. Whether `deal_slug` is unique within your tenant is your bookkeeping concern.
+
+### Via `spvRequestSlug` (Zest's submit-time identifier)
+
+When `POST /v1/spv-requests` succeeds, Zest returns an `spvRequestSlug` — a stable identifier for the SPV-request lifecycle. Use it as your join key if you'd rather not propagate your `deal_slug` through your data model.
+
+Example `materialisedRefs` payload (returned on `spv_request.completed`):
+
+```json
+"materialisedRefs": {
+  "opportunitySlug": "06a04437-a7c7-7a57-8000-2c45ded5ab3f",
+  "vehicleSlug":     "06a04437-b332-7891-8000-71f4c9b821ee",
+  "spSlug":          "06a04437-c891-7012-8000-f3b8c4d1a772",
+  "spcSlug":         "06a04437-d4f2-7553-8000-a91e2b87c346"
+}
+```
+
 ## Validation
 
 When you `POST /v1/spv-requests`, the `attributes` map is validated against the contract template referenced by `templateId` + `templateVersion`. A failure returns `400 validation_error` with one or more `validationErrors[]` rows; see [Errors](/errors) for the full code vocabulary.
