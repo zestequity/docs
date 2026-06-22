@@ -26,7 +26,7 @@ Build a JWT with the following claims:
 | ----- | ----- |
 | `iss` | Your API base URL |
 | `sub` | Your `client_id` |
-| `aud` | `https://sandbox.api.zestequity.com` |
+| `aud` | `https://sandbox-api.zestequity.com` |
 | `client_id` | Your `client_id` |
 | `iat` | now (unix seconds) |
 | `exp` | now + 60 |
@@ -40,7 +40,7 @@ New to JWT assertions? See [Curity's JWT-assertion walkthrough](https://curity.i
 ## 2. Exchange it for an access token
 
 ```bash
-curl -X POST https://sandbox.api.zestequity.com/v1/oauth2/tokens \
+curl -X POST https://sandbox-api.zestequity.com/v1/oauth2/tokens \
   -H "Accept: application/json" \
   -H "Content-Type: application/x-www-form-urlencoded" \
   -d "grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer" \
@@ -66,7 +66,7 @@ Your `templateId` is assigned by Zest during partner onboarding. Use the value y
 </Note>
 
 ```bash
-curl -X POST https://sandbox.api.zestequity.com/v1/spv-requests \
+curl -X POST https://sandbox-api.zestequity.com/v1/spv-requests \
   -H "Accept: application/json" \
   -H "Authorization: Bearer eyJ..." \
   -H "Content-Type: application/json" \
@@ -126,7 +126,7 @@ import requests
 
 CLIENT_ID = os.environ["ZEST_CLIENT_ID"]
 PRIVATE_KEY = open(os.environ["ZEST_PRIVATE_KEY_PATH"]).read()
-BASE_URL = "https://sandbox.api.zestequity.com"
+BASE_URL = "https://sandbox-api.zestequity.com"
 
 now = int(time.time())
 assertion = jwt.encode(
@@ -194,7 +194,7 @@ import { randomUUID } from "node:crypto";
 
 const CLIENT_ID = process.env.ZEST_CLIENT_ID;
 const PRIVATE_KEY_PEM = process.env.ZEST_PRIVATE_KEY;
-const BASE_URL = "https://sandbox.api.zestequity.com";
+const BASE_URL = "https://sandbox-api.zestequity.com";
 
 async function run() {
   const privateKey = await importPKCS8(PRIVATE_KEY_PEM, "EdDSA");

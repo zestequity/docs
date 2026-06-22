@@ -41,7 +41,7 @@ import uuid
 import requests
 
 response = requests.post(
-    "https://public.api.zestequity.com/v1/spv-requests",
+    "https://public-api.zestequity.com/v1/spv-requests",
     headers={
         "Authorization": f"Bearer {token}",
         "Idempotency-Key": str(uuid.uuid4()),
@@ -55,7 +55,7 @@ response = requests.post(
 ```js
 import { randomUUID } from "node:crypto";
 
-const res = await fetch("https://public.api.zestequity.com/v1/spv-requests", {
+const res = await fetch("https://public-api.zestequity.com/v1/spv-requests", {
   method: "POST",
   headers: {
     "Authorization": `Bearer ${token}`,
