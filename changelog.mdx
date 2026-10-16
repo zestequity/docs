@@ -3,6 +3,18 @@ title: "Changelog"
 description: "API and webhook change history."
 ---
 
+## v1.0.2 — enum values validated at submission
+
+### SPV requests
+
+- **Breaking:** the `1.0.0` template catalogs were corrected in place (`templateVersion` stays `1.0.0`). Requests that use a value outside the allowed lists now return `400 validation_error`.
+- **Enum attributes are now validated on `POST /v1/spv-requests`.** A value outside the template's allowed list returns `400 validation_error` with an `enum` row in `validationErrors[]`. Previously enum values were not checked at submission, and some then failed at review.
+- **`deal_documents_media_type`** must be one of `pdf`, `docx`, `xlsx`, `txt`, `html` (not a MIME type such as `application/pdf`).
+- **Allowed lists narrowed to what Zest can materialise.** `syndicate_secondary`: `deal_type` `syndicate-secondary`; `currency` `USD`, `AED`, `EUR`, `SAR`; `status_tag` `Launching Soon`, `Live`, `Closed`; `deal_stage` `launching-soon` through `executing`; `funding_type` `pre-funded`; `bid_type` `total-amount`; `funding_component` `nothing`; `vehicle_fees_paid_by` `company`. `founder_fresh_fundraise`: `status_tag` and `deal_stage` as above; `vehicle_fees_paid_by` `company`, `investors`.
+- **`security_type: "Secondary Transaction"`** added to `syndicate_secondary`.
+
+The current lists are always available from `GET /v1/contracts/catalogs/{version}/{catalogName}`.
+
 ## v1.0.1 — post-launch corrections
 
 Patches and refinements shipped on top of v1.0.0 before broader partner rollout. No breaking changes — all additions are backwards-compatible.

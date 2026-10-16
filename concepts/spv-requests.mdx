@@ -63,7 +63,7 @@ Example `materialisedRefs` payload (returned on `spv_request.completed`):
   "opportunitySlug": "06a04437-a7c7-7a57-8000-2c45ded5ab3f",
   "vehicleSlug":     "06a04437-b332-7891-8000-71f4c9b821ee",
   "spSlug":          "06a04437-c891-7012-8000-f3b8c4d1a772",
-  "spcSlug":         "monark-spc-01"
+  "spcSlug":         "acme-spc-01"
 }
 ```
 
@@ -71,7 +71,9 @@ Example `materialisedRefs` payload (returned on `spv_request.completed`):
 
 When you `POST /v1/spv-requests`, the `attributes` map is validated against the contract template referenced by `templateId` + `templateVersion`. A failure returns `400 validation_error` with one or more `validationErrors[]` rows; see [Errors](/errors) for the full code vocabulary.
 
-Every contract template is read-only and versioned; `GET /v1/contracts/templates/{version}` lists them. Current available version: **`1.0.0`**.
+Enum attributes (for example `currency`, `deal_stage`, `security_type`) must use a value from the template's catalog; anything else fails at submission with an `enum` error. Read the allowed values from `GET /v1/contracts/catalogs/{version}/{catalogName}`.
+
+Every contract template is versioned and read-only to partners; Zest may correct a version's catalogs in place, and records such corrections in the [Changelog](/changelog). `GET /v1/contracts/templates/{version}` lists them. Current available version: **`1.0.0`**.
 
 Your `templateId` is assigned by Zest during onboarding — see [Contract templates](#contract-templates) below.
 
