@@ -15,6 +15,21 @@ description: "API and webhook change history."
 
 The current lists are always available from `GET /v1/contracts/catalogs/{version}/{catalogName}`.
 
+## 2026-10-16 — Investor KYC documents
+
+### Breaking change
+
+- **Subscriptions now require complete KYC documents.** `POST /v1/spvs/{slug}/subscriptions` returns `409 kyc_documents_incomplete` for any investor whose required KYC documents are not all uploaded, and creates nothing for that row. This applies to every partner. Existing integrations must upload KYC documents for each investor before creating subscriptions. See [Subscriptions › Prerequisite: KYC documents](/concepts/subscriptions#prerequisite-kyc-documents).
+
+### New
+
+- **`POST /v1/investors/{zestPersonId}/kyc-documents`** uploads KYC evidence for an investor you created: ID document, ID verification report, proof of address, KYC form, screening results, risk assessment, and a compliance approval (document or comments), plus up to 10 other documents. The response lists the required types still missing. See [Investors › KYC documents](/concepts/investors#kyc-documents).
+- **`kyc_documents_incomplete`** (`409`) added to the [error codes](/errors#top-level-codes).
+
+### Changed
+
+- Investor emails sent to `POST /v1/investors` are now lower-cased before the identity check. An email that differs from an existing Zest identity only by letter case is now treated as that identity and refused like any other existing identity.
+
 ## v1.0.1 — post-launch corrections
 
 Patches and refinements shipped on top of v1.0.0 before broader partner rollout. No breaking changes — all additions are backwards-compatible.

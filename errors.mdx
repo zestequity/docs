@@ -40,6 +40,7 @@ Every non-2xx response from the Zest Public API uses the same envelope. Always p
 | `forbidden` | `403` | Token is valid but the partner application is not provisioned for this resource. |
 | `not_found` | `404` | Resource does not exist or is not visible to the caller. |
 | `conflict` | `409` | Idempotency-Key conflict, terminal-state mutation, or strict-order violation. |
+| `kyc_documents_incomplete` | `409` | Subscription refused because the investor is missing required KYC documents. The `detail` lists the missing types. Upload them with [`POST /v1/investors/{zestPersonId}/kyc-documents`](/concepts/investors#kyc-documents). |
 | `payload_too_large` | `413` | File exceeded the 10 MB upload cap. |
 | `unsupported_media_type` | `415` | Upload content-type not in the allow list (PDF, JPEG, PNG, WEBP). |
 | `internal_error` | `500` | Something broke on Zest's side. Retry with backoff; cite `errorId` if persistent. |

@@ -64,6 +64,80 @@ The endpoint accepts an array of individual-investor records. Institutional/enti
 
 On success, the response returns `zestPersonId` per row. Use it on subsequent `POST /v1/spvs/{slug}/subscriptions`, `POST .../forms`, and `POST .../fundings` calls to identify the investor. If you ever see `404 not_found` on a subscription create for a `zestPersonId` returned by `POST /v1/investors`, surface the `errorId` to Zest support — never retry the investor create as a workaround.
 
+## KYC documents
+
+```
+POST /v1/investors/{zestPersonId}/kyc-documents
+```
+
+Zest needs a KYC evidence file for every investor before it accepts a subscription for them. Upload that evidence with this endpoint. It works only for investors you created through `POST /v1/investors`. The request is `multipart/form-data`.
+
+```bash
+curl -X POST "https://sandbox-api.zestequity.com/v1/investors/psn_abc123/kyc-documents" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -F "idDocument=@passport.pdf;type=application/pdf" \
+  -F "otherDocuments=@source-of-funds.pdf;type=application/pdf" \
+  -F "otherDocuments=@bank-letter.png;type=image/png" \
+  -F "approvalComments=Reviewed by compliance on 2026-10-16."
+```
+
+### Fields
+
+Send any combination of these fields. At least one is required.
+
+| Field | Kind | Stored `type` | Required for subscriptions |
+| ----- | ---- | ------------- | -------------------------- |
+| `idDocument` | file | `id-document` | yes |
+| `idVerificationReport` | file | `id-verification-report` | yes |
+| `proofOfAddress` | file | `proof-of-address` | yes |
+| `kycForm` | file | `kyc-form` | yes |
+| `screeningResults` | file | `screening-result` | yes |
+| `riskAssessment` | file | `risk-assessment` | yes |
+| `approvalDocument` | file | `compliance-approval` | yes, unless `approvalComments` is sent |
+| `approvalComments` | text | `compliance-approval` | yes, unless `approvalDocument` is sent |
+| `otherDocuments` | file, repeatable, max 10 | `other` | no |
+
+### Rules
+
+- A request may send any subset of the fields. You can upload everything at once or in several requests.
+- Each request is stored separately. A later upload never overwrites earlier evidence, so to correct a document, upload it again.
+- Each file is at most 10 MB and must be PDF, JPEG, PNG or WEBP.
+- `approvalComments` is at most 5000 characters (after trimming); longer text returns `400 invalid_request`.
+- `approvalComments` or `approvalDocument` satisfies the `compliance-approval` requirement. Sending both is fine.
+- Only documents uploaded through this endpoint by your application count toward the requirement.
+- An unknown `zestPersonId`, an investor created by another partner, and an investor you did not create all return the same `404 not_found`.
+
+### Response
+
+A successful request returns `201 Created`. `missingRequiredTypes` lists what is still outstanding. Subscriptions for the investor are refused until it is empty.
+
+```json
+{
+  "createdAt": "2026-10-16T09:30:00Z",
+  "documents": [
+    { "type": "id-document", "name": "ID document" },
+    { "type": "other", "name": "source-of-funds.pdf" },
+    { "type": "other", "name": "bank-letter.png" }
+  ],
+  "missingRequiredTypes": [
+    "id-verification-report",
+    "proof-of-address",
+    "kyc-form",
+    "screening-result",
+    "risk-assessment"
+  ]
+}
+```
+
+| Status | Code | Cause |
+| ------ | ---- | ----- |
+| `400` | `invalid_request` | No fields sent, more than 10 `otherDocuments`, or `approvalComments` longer than 5000 characters. |
+| `401` | `invalid_token` | Token missing, malformed, or expired. |
+| `403` | `forbidden` | Application not provisioned for the partner API. |
+| `404` | `not_found` | Investor not found for your application. |
+| `413` | `payload_too_large` | A file is larger than 10 MB. |
+| `415` | `unsupported_media_type` | A file is not PDF, JPEG, PNG or WEBP. |
+
 ## Field reference
 
 ### Control plane

@@ -1039,7 +1039,7 @@
             }
           },
           "409": {
-            "description": "Idempotency-Key conflict (different body)",
+            "description": "Idempotency-Key conflict (different body), or `kyc_documents_incomplete`: the investor is missing required KYC documents",
             "content": {
               "application/json": {
                 "schema": {
@@ -1294,6 +1294,123 @@
           },
           "409": {
             "description": "Form not on record yet, or terminal status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartnerErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "File too large (>10 MB)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartnerErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported media type",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartnerErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/v1/investors/{person_id}/kyc-documents": {
+      "post": {
+        "tags": [
+          "KYC Documents"
+        ],
+        "summary": "Upload investor KYC documents",
+        "description": "Uploads KYC evidence for an investor this partner created. Multipart/form-data; send any subset of the typed files in one request or across several. Each file max 10 MB; PDF, JPEG, PNG, WEBP. `approvalComments` or `approvalDocument` satisfies the compliance-approval requirement. Subscriptions for the investor are refused until `missingRequiredTypes` is empty.",
+        "operationId": "uploadInvestorKycDocuments",
+        "parameters": [
+          {
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Person Id"
+            },
+            "name": "person_id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_uploadInvestorKycDocuments"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KycDocumentUploadResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Empty request or too many otherDocuments",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartnerErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartnerErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Service not provisioned for partner API",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartnerErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Investor not found",
             "content": {
               "application/json": {
                 "schema": {
@@ -2111,6 +2228,107 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "Body_uploadInvestorKycDocuments": {
+        "properties": {
+          "idDocument": {
+            "type": "string",
+            "format": "binary",
+            "title": "Iddocument"
+          },
+          "idVerificationReport": {
+            "type": "string",
+            "format": "binary",
+            "title": "Idverificationreport"
+          },
+          "proofOfAddress": {
+            "type": "string",
+            "format": "binary",
+            "title": "Proofofaddress"
+          },
+          "kycForm": {
+            "type": "string",
+            "format": "binary",
+            "title": "Kycform"
+          },
+          "screeningResults": {
+            "type": "string",
+            "format": "binary",
+            "title": "Screeningresults"
+          },
+          "riskAssessment": {
+            "type": "string",
+            "format": "binary",
+            "title": "Riskassessment"
+          },
+          "approvalDocument": {
+            "type": "string",
+            "format": "binary",
+            "title": "Approvaldocument"
+          },
+          "otherDocuments": {
+            "items": {
+              "type": "string",
+              "format": "binary"
+            },
+            "type": "array",
+            "title": "Otherdocuments"
+          },
+          "approvalComments": {
+            "type": "string",
+            "title": "Approvalcomments"
+          }
+        },
+        "type": "object",
+        "title": "Body_uploadInvestorKycDocuments"
+      },
+      "KycDocumentItem": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "title": "Type"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "type",
+          "name"
+        ],
+        "title": "KycDocumentItem"
+      },
+      "KycDocumentUploadResponse": {
+        "properties": {
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Createdat"
+          },
+          "documents": {
+            "items": {
+              "$ref": "#/components/schemas/KycDocumentItem"
+            },
+            "type": "array",
+            "title": "Documents"
+          },
+          "missingRequiredTypes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Missingrequiredtypes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "createdAt",
+          "documents",
+          "missingRequiredTypes"
+        ],
+        "title": "KycDocumentUploadResponse"
       }
     },
     "securitySchemes": {
@@ -2152,6 +2370,10 @@
     {
       "name": "System",
       "description": "Service health and OpenAPI introspection endpoints."
+    },
+    {
+      "name": "KYC Documents",
+      "description": "KYC evidence for investors you created. Upload any subset per request; subscriptions are refused until every required type is on file."
     }
   ]
 }

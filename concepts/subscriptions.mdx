@@ -46,6 +46,19 @@ Practical implications for partners:
 
 If you orchestrate uploads in parallel, gate the funding upload on a successful signed-form response (or on the corresponding webhook).
 
+## Prerequisite: KYC documents
+
+Before a subscription is accepted, the investor must have a complete KYC file uploaded through [`POST /v1/investors/{zestPersonId}/kyc-documents`](/concepts/investors#kyc-documents). Until `missingRequiredTypes` in that response is empty, `POST /v1/spvs/{slug}/subscriptions` returns `409 kyc_documents_incomplete`. The whole batch is validated before anything is written, so when any row is refused no subscription in the batch is created and the same request can be retried safely:
+
+```json
+{
+  "code": "kyc_documents_incomplete",
+  "detail": "zest_person_id='psn_abc123' is missing required KYC documents: kyc-form, risk-assessment"
+}
+```
+
+This applies to every partner.
+
 ## Per-row payload
 
 Each row in the bulk request carries:
