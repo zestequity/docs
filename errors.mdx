@@ -118,3 +118,12 @@ Inside the `validationErrors[].code` field. Every code is stable and machine-act
 ## Working with `errorId`
 
 `errorId` is generated server-side and persisted in our logs. Bake it into your operator dashboards next to every red-flagged event so support can trace incidents in seconds.
+
+## Request id
+
+Every `/v1` response, successful or not, carries an `x-request-id` header: a 32-character hex id that Zest generates for that request. (A `406` for a missing `Accept: application/json` header is refused before an id exists.) Log it with each call, and cite it (with `errorId`, when there is one) when you contact support. It is always Zest's own id: an `x-request-id` or `traceparent` header you send is ignored.
+
+```http
+HTTP/1.1 500 Internal Server Error
+x-request-id: 4bf92f3577b34da6a3ce929d0e0e4736
+```
