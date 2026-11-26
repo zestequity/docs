@@ -1,9 +1,9 @@
 ---
 title: "Introduction"
-description: "Zest Public API — programmatic access to SPV creation, investor onboarding, and subscription processing for Zest Equity's regulated private-market platform."
+description: "Zest Public API — programmatic access to SPV creation, investor onboarding, and subscription processing for Zest Equity's institutional private-market platform."
 ---
 
-The Zest Public API lets you embed Zest's DIFC-regulated SPV-as-a-Service workflow inside your own product. Use it to:
+The Zest Public API lets partners embed Zest's SPV workflow in their own product. Use it to:
 
 - Submit SPV creation requests with structured contract attributes.
 - Bulk-onboard partner-managed investors.
@@ -12,7 +12,7 @@ The Zest Public API lets you embed Zest's DIFC-regulated SPV-as-a-Service workfl
 
 ## Who this is for
 
-Partners that operate their own client-facing investor portal but want Zest to handle SPV vehicle setup, fund admin, and regulatory compliance.
+Partners that operate their own client-facing investor portal but want Zest to handle SPV setup, investor onboarding and KYC/AML checks, and post-close administration.
 
 ## Architecture at a glance
 
@@ -21,7 +21,7 @@ Partners that operate their own client-facing investor portal but want Zest to h
     Exchange a partner-signed JWT for a short-lived bearer access token via OAuth 2.0 JWT-Bearer assertion grant. See [Authentication](/authentication).
   </Step>
   <Step title="Submit an SPV request">
-    POST a contract-validated payload to `/v1/spv-requests`. Zest admins review and approve; on approval the SPV is materialised (Opportunity, Vehicle, SP, SPC). See [SPV Requests](/concepts/spv-requests).
+    POST a contract-validated payload to `/v1/spv-requests`. Zest admins review and approve; on approval the SPV is materialised (Opportunity, Vehicle, Segregated Portfolio (SP) and Segregated Portfolio Company (SPC)). See [SPV Requests](/concepts/spv-requests).
   </Step>
   <Step title="Onboard investors">
     Bulk-create investor records, with partial-success semantics — bad rows do not fail the batch. See [Investors](/concepts/investors).
