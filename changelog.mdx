@@ -3,6 +3,12 @@ title: "Changelog"
 description: "API and webhook change history."
 ---
 
+## 2026-10-30 — Request id on every response
+
+### New
+
+- **`x-request-id` response header** on every `/v1` response, including errors. Cite it when you contact support. Any `x-request-id` or `traceparent` you send is ignored. See [Errors › Request id](/errors#request-id).
+
 ## v1.0.2 — enum values validated at submission
 
 ### SPV requests

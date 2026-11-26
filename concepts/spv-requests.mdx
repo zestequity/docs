@@ -83,7 +83,14 @@ A **contract template** is the schema that validates the `attributes` map you se
 
 Your `templateId` is assigned by Zest during partner onboarding. The value is specific to your integration: each partner is provisioned with the template that matches the deal structures we agreed on during commercial scoping, and that pairing is not self-service. You will receive your `templateId` alongside your `clientId` and webhook signing secret — use it verbatim everywhere `<your_template_id>` appears in this documentation.
 
-If your integration needs to support a deal structure outside the template you were assigned, contact `sara@zestholdco.com` so we can scope a template update or a new template version.
+The following templates are available in version `1.0.0`:
+
+| `templateId` | Deal shape |
+|---|---|
+| `syndicate_secondary` | Fixed-price secondary syndicate vehicle (existing shareholders sell to new investors). Single share class. |
+| `founder_fresh_fundraise` | Founder-led primary issuance — new shares created in the round. Multi-share-class support with per-class carry / fees / management fee. |
+
+Your `templateId` is assigned during onboarding — contact `sara@zestholdco.com` if your integration needs a different template than the one you were provisioned with.
 
 ## Idempotency
 
